@@ -8,6 +8,7 @@ This is an ongoing OFFGRID.CH project. We are specialist of offgrid energy syste
 -Accessories: Battery supervision, remote monitoring
 -...
 
+Please visit: www.offgrid.ch
 
 
 More informations on www.studer-innotec.com
