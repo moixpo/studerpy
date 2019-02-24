@@ -1,4 +1,4 @@
-# studerpy
+# stupy  : Studer Python
 
 Open source lib of usefull code in python for Studer-Innotec Product: read datalogs, communicate with device, ...
 
