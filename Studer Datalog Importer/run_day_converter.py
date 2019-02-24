@@ -18,7 +18,7 @@ from xt_log_day_import import xt_log_day_import
 
 
 
-file_path ='C:/Users/moix_/Dropbox/Python/StuderPy/Studer Datalog Importer/LG190130.CSV'
+file_path ='LG190130.CSV'
 user_delimiter=';' 
 day_datalog=xt_log_day_import(file_path, user_delimiter)
 
