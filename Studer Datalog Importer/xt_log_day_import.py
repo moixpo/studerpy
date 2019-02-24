@@ -3,32 +3,39 @@
 #  Version py 1.0   3 février 2019
 #  Moix P-O
 #  WWW.OFFGRID.CH   Albedo-Engineering ALBEDO.CH
-#  
-# GPL license
+#
+  
 ######################
+# DESCRIPTION
 #
 #   Function to import Studer-Innotec datalog .csv file.
 #
 #   xt_log_day_importer(filename, user_delimiter=',')
 #
-##   filename: name of the log file: LG091006.CSV per example, give the full path if not in the same folder
-##
-##   user_delimiter=','      for english Excel display (used by default)
-##   user_delimiter=';'      for french Excel
-##
-##
-##
-##The returned DAY_DATALOG is a structure/dictionnary with the following fields
-##
-##day_datalog =
-##             channels_label: {1xn cell}           Name of the n channels logged
-##                        day: 6                     Day of the month
-##                      month: 10                    month of the year
-##                       year: 2009                  year
-##    time_minutes_of_the_day: [1x1440 double]       time in minutes of the logged day
-##              datalog_value: [n x1440x9 double]    n channels 
+
+#######
+# INPUTS:
+#   filename: name of the log file: LG091006.CSV per example, give the full path if not in the same folder
+#
+#   user_delimiter=','      for english Excel display (used by default)
+#   user_delimiter=';'      for french Excel
 #
 #
+
+#######
+# OUTPUTS:
+#The returned DAY_DATALOG is a structure/dictionnary with the following fields
+#
+#   day_datalog =
+#            'channels_label': 1xn list             name of the n channels logged
+#              'day_of_month': 6                    day of the month
+#                     'month': 10                   month of the year
+#                      'year': 2009                 year
+#   'time_minutes_of_the_day': 1x1440 double      time in minutes of the logged day.
+#             'datalog_value': n x1440 double     n channels one point per day in a numpy array.
+#           'version_datalog':'v6.10'               To see if an update was done in the middle.
+#               'other_infos':                      Text available at the end of te datalog, kept for further treatments.
+
 
 
 #%reset y
