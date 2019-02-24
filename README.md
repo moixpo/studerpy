@@ -1,6 +1,6 @@
 # studerpy
 
-Little open source lib of usefull code in python for Studer-Innotec Product: read datalog, communicate with device, ...
+Open source lib of usefull code in python for Studer-Innotec Product: read datalogs, communicate with device, ...
 
 This is an ongoing OFFGRID.CH project. We are specialist of offgrid energy systems and we commission Studer-Innotec Products:
 -Inverter-chargers: Xtender XTH, XTM and XTS
