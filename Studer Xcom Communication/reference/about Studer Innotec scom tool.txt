@@ -1,0 +1,60 @@
+Studer Innotec Serial Protocol command line tool
+================================================
+
+This archive file contains a command line tool to communicate
+through the serial port with a RCC-02/03-32 remote control.
+
+By this mean, it is possible to monitor and control an Xtender
+System. This tool can be used for debug purpose, for scripting 
+or by integrator that don't want to implement the protocol.
+
+The protocol is open and fully documented. Please ask Studer Innotec
+for the latest version of the specification.
+
+If you received this tool by email, it could be named "scom._exe_" to avoid
+issue with strict mail server virus policies. Please rename it to "scom.exe".
+
+To get help about other commands of the command line tool:
+
+>scom.exe help
+
+or for a specific command:
+
+>scom.exe [command] help
+
+
+To check all serial ports from COM1 to COM20 and test possible connections:
+
+>scom.exe test
+
+Troubleshooting
+---------------
+
+After running scom.exe test, if the operating system detect a port but it's not possible
+communicate with the RCC, you will see:
+
+>COM1 opened with success
+>  port not working with scom protocol: RESPONSE_TIMEOUT (3)
+
+In this case, check if you are really using the right port. Serial port on the
+motherboard are usually COM1 and COM2, USB-to-serial devices COM3 to COM9.
+
+you can test the cable and PC hardware by connecting the pin 2 (RxD) with
+the pin 3 (TxD) at the end of the cable. If it's working you will see for exemple:
+
+COM6 opened with success
+  port not working with scom protocol: INVALID_FRAME (1)
+  
+You should also be sure that you use a straight cable (no cross-wired, so called
+null-modem, cable). With a multimeter check if there is a connection between
+pin 2 (RxD), pin 3 (TxD) and pin 5 (GND) from one side to the other side.
+
+
+
+ 
+Studer Innotec
+Rue des Casernes 57
+1950 SION / Switzerland
+Tel :027 205 60 80 / Fax : 027 205 60 88
+Email: info@studer-innotec.com
+Web : http://www.studer-innotec.com
