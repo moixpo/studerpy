@@ -4,6 +4,9 @@ Open source lib of usefull python code for Studer-Innotec Product: read datalogs
 
 This is an ongoing OFFGRID.CH project. Goal is to have usefull tools for the analysis and control of solar energy systems.
 
+Feel free to contribute to get results faster... ;-)   it's done on free time, that means I can't work much on it!
+
+
 We are specialist of offgrid energy systems and we commission Studer-Innotec Products:
 -Inverter-chargers: Xtender XTH, XTM and XTS
 -MPPT Solar chargers: VT and VS
