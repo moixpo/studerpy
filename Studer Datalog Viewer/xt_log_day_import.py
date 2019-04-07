@@ -60,6 +60,8 @@ def xt_log_day_import(filename, user_delimiter=','):
     other_infos=[]
     with open(filename) as csv_file:
         
+        #TODO: an try with the delimiter to automatically choose it...
+                
         csv_reader = csv.reader(csv_file, delimiter=user_delimiter)
         line_count = 0
         values_line_count = 0
@@ -73,7 +75,7 @@ def xt_log_day_import(filename, user_delimiter=','):
         #batt_val=np.array([])
         minutes_of_the_day=np.array([])
         
-        
+
         
         for row in csv_reader:
             #print(row)

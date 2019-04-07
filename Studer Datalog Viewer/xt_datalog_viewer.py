@@ -4,6 +4,12 @@ Created on Fri Feb  8 20:33:51 2019
 
 @author: Moix P-O WWW.OFFGRID.CH
 
+#  Version py 1.0   3 février 2019
+#  Moix P-O
+#  WWW.OFFGRID.CH   Albedo-Engineering ALBEDO.CH
+#
+  
+
 xt_datalog_viewer.py
 
 """
@@ -37,7 +43,11 @@ plt.close("all")
 
 #OPTIONS:
 user_delimiter=';'  # ',' for english Excel display and ';' for french Excel option change in the RCC
+user_delimiter=','  # ',' for english Excel display and ';' for french Excel option change in the RCC
 
+print('In case of error: have you checked the .csv delimiter? ')
+#TODO: automatic choice of delimiter
+#user_delimiter=input('Give your .csv delimiter: )
 
 
 #***************************************
@@ -130,7 +140,10 @@ for year in year_string:
 #%***************************************
 #% task 4: Concatenate those datas in one array
 #%****************************************
-#Concatenate those 
+#Concatenate those data
+                    
+print(" __________ Concatenate data  _______________ ")
+
 total_time_vectors=np.array([])
 total_datalog_value=np.array([])
 
@@ -154,11 +167,14 @@ for single_days in all_datalogs:
 #not so important for most of the values but for battery levels it is not OK
 
 
-print(" __________ Warning: CHECK CHANNELS FOR BATTERIES  _______________ ")
+print(" __________ Warning: CLEAN OF DATA FOR BATTERIES  _______________ ")
 
-chanel_number_for_batteries=[0, 1, 2, 39, 40, 41]  #TODO: scan for channels with Ubat in the name 
+#scan for channels with Ubat in the name:
 
-#REPLACE 0 values
+matching = [ s for s in single_days['channels_label'] if "Ubat" in s]
+chanel_number_for_batteries=[single_days['channels_label'].index(s) for s in matching]
+
+#REPLACE 0 values with previous value
 for chan in chanel_number_for_batteries:
     k=0
     for tested_value in total_datalog_value[:,chan]:
@@ -167,8 +183,8 @@ for chan in chanel_number_for_batteries:
         k+=1   
             
     
-print(" __________ Warning: CHECK CHANNELS FOR TRANSFERT RELAY  _______________ ")
-chanel_number_for_batteries=[0, 1, 2, 39, 40, 41]
+print(" __________ Warning: CLEAN OF DATA FOR TRANSFERT RELAY  TO DO_______________ ")
+chanel_number_for_transfer=[0, 1, 2, 39, 40, 41]
     
     
 #REPLACE 2 values (undetermined) with 0.5 to estimate the transfert time
@@ -185,10 +201,18 @@ print(" ")
 print(" __________ GRAPH DISPLAY  _______________ ")
 print(" \n \n \n ")
 
-chanel_number=0
-batt_valmin=total_datalog_value[:,chanel_number]
-chanel_number=39
-batt_val=total_datalog_value[:,chanel_number]
+#minimal battery voltage
+chanel_number=single_days['channels_label'].index('XT-Ubat- (MIN) [Vdc]') 
+XT_batt_valmin=total_datalog_value[:,chanel_number]
+
+#battery voltage
+chanel_number=single_days['channels_label'].index('XT-Ubat [Vdc]') 
+XT_batt_val=total_datalog_value[:,chanel_number]
+
+
+chanel_number=single_days['channels_label'].index('BSP-Ubat [Vdc]') 
+BSP_batt_val=total_datalog_value[:,chanel_number]
+
 
 minutes_of_the_day=total_time_vectors
 
@@ -197,12 +221,9 @@ minutes_of_the_day=total_time_vectors
 
 fig1=plt.figure(1)
 plt.clf()
-plt.plot(minutes_of_the_day/60, total_datalog_value[:,chanel_number], 'b')
-plt.plot(minutes_of_the_day/60, total_datalog_value[:,chanel_number+1], 'c')
-plt.plot(minutes_of_the_day/60, total_datalog_value[:,chanel_number+2], 'g')
-
-
-plt.plot(minutes_of_the_day/60, batt_valmin,'y+-')
+plt.plot(minutes_of_the_day/60, XT_batt_val, 'b')
+plt.plot(minutes_of_the_day/60, BSP_batt_val, 'g')
+plt.plot(minutes_of_the_day/60, XT_batt_valmin,'y+-')
 
 plt.xlabel('Time (hours)', fontsize=12)
 plt.ylabel('Voltage', fontsize=12)
@@ -212,7 +233,7 @@ plt.ax = fig1.gca()
 plt.ax.grid(True)
 
 plt.show()
-
+fig1.legend(['mesure XT', 'mesure BSP', 'xt min'])
 
 
 fig2=plt.figure(2)
@@ -222,7 +243,8 @@ plt.hist(batt_val, 25, facecolor='r', alpha=0.75)
 plt.xlabel('Voltage')
 plt.ylabel('Occurence')
 plt.title('Histogram of Battery Voltage')
-plt.text(52, 25, r'$\mu=100,\ \sigma=15$')
+
+#plt.text(52, 25, r'$\mu=100,\ \sigma=15$')
 #plt.axis([40, 60, 0, 0.03])
 plt.grid(True)
 plt.show()
