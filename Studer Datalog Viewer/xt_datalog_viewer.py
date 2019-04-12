@@ -1,15 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Feb  8 20:33:51 2019
-
-@author: Moix P-O WWW.OFFGRID.CH
-
 #  Version py 1.0   3 février 2019
 #  Moix P-O
 #  WWW.OFFGRID.CH   Albedo-Engineering ALBEDO.CH
 #
   
-
 xt_datalog_viewer.py
 
 """
@@ -238,7 +233,7 @@ fig1.legend(['mesure XT', 'mesure BSP', 'xt min'])
 
 fig2=plt.figure(2)
 plt.clf()
-plt.hist(batt_val, 25, facecolor='r', alpha=0.75)
+plt.hist(BSP_batt_val, 25, facecolor='r', alpha=0.75)
 
 plt.xlabel('Voltage')
 plt.ylabel('Occurence')
