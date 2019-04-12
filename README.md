@@ -4,7 +4,7 @@ Open source lib of usefull python code for Studer-Innotec Product: read datalogs
 
 This is an ongoing OFFGRID.CH project. Goal is to have usefull tools for the analysis and control of solar energy systems.
 
-Feel free to contribute to get results faster... ;-)   it's done on free time, that means I can't work much on it!
+Feel free to contribute to get results faster... ;-)   
 
 
 We are specialist of offgrid energy systems and we commission Studer-Innotec Products:
@@ -15,7 +15,7 @@ We are specialist of offgrid energy systems and we commission Studer-Innotec Pro
 -More informations on www.studer-innotec.com
 
 
-We install solar home systems, hybrid systems, minigrids and perform technical consulting around those systems...
+We install solar home systems, hybrid systems, minigrids, microgrids and perform technical consulting around those systems...
 If you need technical assistance, contact us, we'll be happy to work for you!
 
 If you use a part of those codes, please send us an email describing what you do with it. This will help us to get support from the manufacturer if a community is built around open-source code for their product.
