@@ -209,6 +209,10 @@ chanel_number=single_days['channels_label'].index('BSP-Ubat [Vdc]')
 BSP_batt_val=total_datalog_value[:,chanel_number]
 
 
+chanel_number=single_days['channels_label'].index('XT-Pin a [kW]') 
+grid_power=total_datalog_value[:,chanel_number]
+
+
 minutes_of_the_day=total_time_vectors
 
 
@@ -221,7 +225,7 @@ plt.plot(minutes_of_the_day/60, BSP_batt_val, 'g')
 plt.plot(minutes_of_the_day/60, XT_batt_valmin,'y+-')
 
 plt.xlabel('Time (hours)', fontsize=12)
-plt.ylabel('Voltage', fontsize=12)
+plt.ylabel('Voltage [V]', fontsize=12)
 plt.title('Battery Voltage', fontsize=18, weight="bold")
 
 plt.ax = fig1.gca()
@@ -235,7 +239,7 @@ fig2=plt.figure(2)
 plt.clf()
 plt.hist(BSP_batt_val, 25, facecolor='r', alpha=0.75)
 
-plt.xlabel('Voltage')
+plt.xlabel('Voltage [V]')
 plt.ylabel('Occurence')
 plt.title('Histogram of Battery Voltage')
 
@@ -246,6 +250,24 @@ plt.show()
 
 plt.ax = fig2.gca()
 plt.ax.grid(True)
+
+
+
+fig3=plt.figure(3)
+plt.clf()
+plt.plot(minutes_of_the_day/60, grid_power, 'b')
+
+
+plt.xlabel('Time (hours)', fontsize=12)
+plt.ylabel('Power [kW]', fontsize=12)
+plt.title('Grid Power', fontsize=18, weight="bold")
+
+plt.ax = fig3.gca()
+plt.ax.grid(True)
+
+plt.show()
+#fig1.legend(['mesure XT', 'mesure BSP', 'xt min'])
+
 
 
 ##pour un essai de vitesse d'affichage on stack 2^11 fois la journée, soit 2048 jours, soit 5,6 ans
