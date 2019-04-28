@@ -212,6 +212,11 @@ BSP_batt_val=total_datalog_value[:,chanel_number]
 chanel_number=single_days['channels_label'].index('XT-Pin a [kW]') 
 grid_power=total_datalog_value[:,chanel_number]
 
+   
+print(" ************* ")
+print("BEWARE: for 3-phased systems, the sum of the three inverters")
+grid_power=total_datalog_value[:,chanel_number]+total_datalog_value[:,chanel_number+1]+total_datalog_value[:,chanel_number+2]
+print(" comment this line if not the case ")
 
 minutes_of_the_day=total_time_vectors
 
@@ -220,11 +225,11 @@ minutes_of_the_day=total_time_vectors
 
 fig1=plt.figure(1)
 plt.clf()
-plt.plot(minutes_of_the_day/60, XT_batt_val, 'b')
-plt.plot(minutes_of_the_day/60, BSP_batt_val, 'g')
-plt.plot(minutes_of_the_day/60, XT_batt_valmin,'y+-')
+plt.plot(minutes_of_the_day/60/24, XT_batt_val, 'b')
+plt.plot(minutes_of_the_day/60/24, BSP_batt_val, 'g')
+plt.plot(minutes_of_the_day/60/24, XT_batt_valmin,'y+-')
 
-plt.xlabel('Time (hours)', fontsize=12)
+plt.xlabel('Time (days)', fontsize=12)
 plt.ylabel('Voltage [V]', fontsize=12)
 plt.title('Battery Voltage', fontsize=18, weight="bold")
 
