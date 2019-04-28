@@ -6,6 +6,8 @@ Created on Sun Feb 24 20:33:42 2019
   Moix P-O
   WWW.OFFGRID.CH   Albedo-Engineering ALBEDO.CH
   
+  License GPL-3.0-only ou GPL-3.0-or-later
+
 Simple test of fonction xt_log_day_import
 """
 

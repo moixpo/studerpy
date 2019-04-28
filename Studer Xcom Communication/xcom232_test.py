@@ -1,8 +1,10 @@
+"""
 ###################################
 #  xt_log_day_import.py
 #  Version py 1.0   25 février 2019
 #  Moix P-O
 #  WWW.OFFGRID.CH   Albedo-Engineering ALBEDO.CH
+#  License GPL-3.0-only ou GPL-3.0-or-later
 ######################
 
 

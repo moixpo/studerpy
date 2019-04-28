@@ -3,7 +3,7 @@
 #  Version py 1.0   3 février 2019
 #  Moix P-O
 #  WWW.OFFGRID.CH   Albedo-Engineering ALBEDO.CH
-#
+#  License GPL-3.0-only ou GPL-3.0-or-later
   
 xt_datalog_viewer.py
 
