@@ -20,7 +20,8 @@ ser.parity='N'
 ser.open()
 
 print('Damn! All the programming job is to do ...   ')
-
+print(' ')
+print('Until a purely python implementation is done, have a look at https://github.com/studer-innotec/scom ').
 
 ## First test will be sending the test frame given on page 27 of manual 
 #AA
