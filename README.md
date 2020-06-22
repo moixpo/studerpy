@@ -2,9 +2,9 @@
 
 Open source lib of usefull python code for Studer-Innotec Product: read datalogs, communicate with device, ...
 
-This is an ongoing OFFGRID.CH project. Goal is to have usefull tools for the analysis and control of solar energy systems.
+This is an ongoing project at a preliminary stage. Goal is to have usefull tools for the analysis and control of solar energy systems.
 
-Feel free to contribute to get results faster... ;-)   
+Feel free to contribute to get results faster... ;-)   This code is published under License GPL-3.0-only ou GPL-3.0-or-later
 
 
 We are specialist of offgrid energy systems and we commission Studer-Innotec Products:
@@ -25,7 +25,7 @@ Please visit: www.offgrid.ch
 
 Regards
 
-Moix Pierre-Oliver
+moixpo
 
 
 
