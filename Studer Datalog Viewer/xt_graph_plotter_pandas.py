@@ -67,8 +67,7 @@ chanels_number_ubat = [i for i, elem in enumerate(channels_labels) if 'Ubat' in 
 chanels_number_ibat = [i for i, elem in enumerate(channels_labels) if 'Ibat' in elem]
 
 #fig_bat=plt.figure()
-fig_batt_u, axes_bat_u = plt.subplots(nrows=1, ncols=1)
-
+fig_batt, (axes_bat_u,axes_bat_i) = plt.subplots(nrows=2, ncols=1)
 
 total_datalog_df.plot(y=total_datalog_df.columns[chanels_number_ubat],
                       grid=True,
@@ -81,16 +80,32 @@ axes_bat_u.set_title('All Battery Voltages', fontsize=12, weight="bold")
 axes_bat_u.grid(True)
 plt.show
 
-
 total_datalog_df.plot(y=total_datalog_df.columns[chanels_number_ibat],
                       figsize=(15,5),
                       grid=True,
-                      sharex=True)
+                      sharex=True,
+                      ax=axes_bat_i)
 
-plt.ylabel('Amperes [A]', fontsize=12)
-plt.title('All Battery Currents', fontsize=12, weight="bold")
-plt.grid(True)
-plt.show
+axes_bat_i.set_ylabel('Amperes [A]', fontsize=12)
+axes_bat_i.set_title('All Battery Currents', fontsize=12, weight="bold")
+axes_bat_i.grid(True)
+
+
+
+fig_batt_hist, axes_bat_u_hist = plt.subplots(nrows=1, ncols=1)
+
+quarters_mean_df.plot(y=quarters_mean_df.columns[chanels_number_ubat[1]],
+                      figsize=(12,6),
+                      kind='hist',
+                      bins=40,
+                      ax=axes_bat_u_hist)
+
+axes_bat_u_hist.set_xlabel('Voltage [V]', fontsize=12)
+axes_bat_u_hist.set_ylabel('occurence', fontsize=12)
+axes_bat_u_hist.set_title('Battery Voltage Histogramm', fontsize=12, weight="bold")
+axes_bat_u_hist.grid(True)
+
+#plt.show
 
 
 
@@ -198,10 +213,10 @@ chanels_number_ibatbsp = [i for i, elem in enumerate(channels_labels) if 'BSP-Ib
 
 
 fig_batt, axes_batt = plt.subplots(nrows=1, ncols=1)
-axes_batt.plot(total_datalog_df.values[:,chanels_number_ubatbsp],total_datalog_df.values[:,chanels_number_ibatbsp])
+axes_batt.scatter(total_datalog_df.values[:,chanels_number_ibatbsp],total_datalog_df.values[:,chanels_number_ubatbsp])
 
-axes_batt.set_ylabel('Amperes [A]', fontsize=12)
-axes_batt.set_xlabel('Voltage [V]', fontsize=12)
+axes_batt.set_xlabel('Amperes [A]', fontsize=12)
+axes_batt.set_ylabel('Voltage [V]', fontsize=12)
 axes_batt.set_title('Voltage VS Currents', fontsize=12, weight="bold")
 axes_batt.grid(True)
 
