@@ -1,8 +1,8 @@
 ###################################
 #  xt_daylog_pandas_import.py
-#  Version py 1.0   3 février 2019
+#  Version py 1.0   june 2020
 #  Moix P-O
-#  WWW.OFFGRID.CH   Albedo-Engineering ALBEDO.CH
+#  WWW.OFFGRID.CH    Albedo-Engineering ALBEDO.CH
 #
 #  License GPL-3.0-only ou GPL-3.0-or-later
 
@@ -57,7 +57,7 @@ import pandas as pd
 
 #studer_datalog_day_converter(file_path,',')
 
-def xt_daylog_pandas_import(file_path, user_delimiter=','):
+def xt_daylog_pandas_import(file_path, user_delimiter=',', offsetcolumn=0):
     
     mydateparser=lambda x: pd.datetime.strptime(x, "%d.%m.%Y %H:%M")
     pandatest = pd.read_csv(file_path, 
@@ -68,11 +68,12 @@ def xt_daylog_pandas_import(file_path, user_delimiter=','):
                             parse_dates=True,
                             date_parser=mydateparser,
                             index_col=0,
-                            engine='c')  
+                            engine='python')  
     
     #index_col=0,   index_col=False , index_col=None
     #encoding="cp1252" "utf-8"
     #skiprows=range(1, 10))
+    # engine='c'
     
     
     
@@ -82,13 +83,14 @@ def xt_daylog_pandas_import(file_path, user_delimiter=','):
 #    pandatest.index  #to see the time index of each line
 #    pandatest.columns #to see the label of each column
     
-    #theres is a unexpllanable shift with the labels of colums,
-    # no explaination, turn around to avoid it
+    
+    #theres is a unexplanable shift with the labels of columns with xt logs
+    # no explaination yet: turn around to avoid it with an offset
     #merge of the first three lines of headers:
     
     
     newlabels=[]
-    for elem in list(pandatest.columns[1:]):
+    for elem in list(pandatest.columns[offsetcolumn:]):
         #print(elem[0] + ' ' +elem[1] + ' ' + elem[2])
         newlabels.append(elem[0] + ' ' +elem[1] + ' ' + elem[2])
         #pandatest.columns[1:]
