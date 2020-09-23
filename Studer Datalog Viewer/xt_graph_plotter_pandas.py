@@ -67,17 +67,18 @@ chanels_number_ubat = [i for i, elem in enumerate(channels_labels) if 'Ubat' in 
 chanels_number_ibat = [i for i, elem in enumerate(channels_labels) if 'Ibat' in elem]
 
 #fig_bat=plt.figure()
-#fig_batt, axes_bat = plt.subplots(nrows=2, ncols=1)
+fig_batt_u, axes_bat_u = plt.subplots(nrows=1, ncols=1)
 
 
 total_datalog_df.plot(y=total_datalog_df.columns[chanels_number_ubat],
                       grid=True,
                       figsize=(15,5),
-                      sharex=True)
+                      sharex=True,
+                      ax=axes_bat_u)
 
-plt.ylabel('Voltage [V]', fontsize=12)
-plt.title('All Battery Voltages', fontsize=12, weight="bold")
-plt.grid(True)
+axes_bat_u.set_ylabel('Voltage [V]', fontsize=12)
+axes_bat_u.set_title('All Battery Voltages', fontsize=12, weight="bold")
+axes_bat_u.grid(True)
 plt.show
 
 
@@ -219,14 +220,14 @@ len(total_datalog_df.values[:,chanel_number_for_transfer])
 labels = ['on grid/genset: ' +str(round(minutes_with_transfer/60,1)) + ' hours',
           'on inverter: ' +str(round(minutes_without_transfer/60,1)) + ' hours']
 fig_transfer=plt.figure()
-plt.clf()
-plt.pie([minutes_with_transfer,minutes_without_transfer],
+ax_transfer=fig_transfer.add_subplot(111)
+ax_transfer.pie([minutes_with_transfer,minutes_without_transfer],
         labels=labels,
         shadow=True, 
         startangle=90,
         autopct='%1.1f%%')
         
-plt.show()
+#plt.show()
 
 
 

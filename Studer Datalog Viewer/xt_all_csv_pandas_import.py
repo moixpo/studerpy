@@ -463,15 +463,15 @@ plt.grid(True)
 plt.show
 
 
-
-
-
-month_mean_df.plot(y=month_mean_df.columns[chanels_number_ubat[0]],
-                      color='r',
-                      figsize=(15,5),
-                      grid=True,
-                      sharex=True,
-                      title='Mean Battery Voltages')
+#
+#
+#
+#month_mean_df.plot(y=month_mean_df.columns[chanels_number_ubat[0]],
+#                      color='r',
+#                      figsize=(15,5),
+#                      grid=True,
+#                      sharex=True,
+#                      title='Mean Battery Voltages')
 
 
 
