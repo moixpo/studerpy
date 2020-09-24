@@ -303,7 +303,7 @@ month_kwh_df[['Solar power (ALL) [kW] I17999 ALL','XT-Pin a [kW] I3119 L1-1','XT
                       ax=axes_ener)
 
 axes_ener.set_ylabel('Energy [kWh]', fontsize=12)
-axes_ener.set_title('Energies Mensuelles', fontsize=12, weight="bold")
+axes_ener.set_title('Monthly Energies', fontsize=12, weight="bold")
 axes_ener.grid(True)
 
 plt.show()
@@ -342,7 +342,7 @@ axes_ener2.set_ylabel('Energy [kWh]', fontsize=12)
 loc, label= plt.xticks()
 plt.xticks(loc,labels=list(month_kwh_df.index.month_name()) )
 
-axes_ener2.set_title('Energies Mensuelles', fontsize=12, weight="bold")
+axes_ener2.set_title('Monthly Energies', fontsize=12, weight="bold")
 axes_ener2.grid(True)
 
 
@@ -351,17 +351,12 @@ axes_ener2.grid(True)
 
 
 #######
-## HEAT MAPS:  TODO
+## HEAT MAPS:  TODO  for the daily consumption
 ########
 #https://scipython.com/book/chapter-7-matplotlib/examples/a-heatmap-of-boston-temperatures/
 #https://vietle.info/post/calendarheatmap-python/
 
 
-
-
-
-
-#
 
 
 
