@@ -105,7 +105,6 @@ axes_bat_u_hist.set_ylabel('occurence', fontsize=12)
 axes_bat_u_hist.set_title('Battery Voltage Histogramm', fontsize=12, weight="bold")
 axes_bat_u_hist.grid(True)
 
-#plt.show
 
 
 
@@ -167,39 +166,7 @@ axes_hist.grid(True)
 
 
 
-#total_datalog_df.hist(y=total_datalog_df.values[:,chanels_number_Pout],
-#                      bins=10,
-#                      ax=axes2[1])
-#
-#quarters_mean_df.plot(quarters_mean_df.values[:,chanels_number_Pout],
-#                      bins=20)
-#
-#plt.title('All AC-out Powers Histogram', fontsize=12, weight="bold")
-#plt.grid(True)
-#plt.xlabel('Power [kW]', fontsize=12)
 
-plt.show()
-
-
-
-
-
-
-######
-# Charge /discharge power on the battery
-#######
-
-chanel_number_for_UbattBSP=[i for i, elem in enumerate(channels_labels) if 'BSP-Ubat [Vdc]' in elem]
-chanel_number_for_IbattBSP=[i for i, elem in enumerate(channels_labels) if 'BSP-Ibat [Adc]' in elem]
-
-
-battery_power=total_datalog_df.values[:,chanel_number_for_UbattBSP]*total_datalog_df.values[:,chanel_number_for_IbattBSP]/1000
-
-#battery_power_df=pd.DataFrame({"Battery Power [kW]": battery_power,
-#                               "Battery Charge Power [kW]": battery_power,
-#                               "Battery Discharge Power [kW]": battery_power},
-#                                index=total_datalog_df.index)
-               
 
 
 
@@ -220,12 +187,44 @@ axes_batt.set_ylabel('Voltage [V]', fontsize=12)
 axes_batt.set_title('Voltage VS Currents', fontsize=12, weight="bold")
 axes_batt.grid(True)
 
-plt.show
+
+#######
+## Charge /discharge power
+########
+battery_power=total_datalog_df.values[:,chanels_number_ubatbsp]*total_datalog_df.values[:,chanels_number_ibatbsp]/1000
+
+#battery_power_df=pd.DataFrame({"Battery Power [kW]": battery_power,
+#                               "Battery Charge Power [kW]": battery_power,
+#                               "Battery Discharge Power [kW]": battery_power},
+#                                index=total_datalog_df.index)
+#                               
+#                               
 
 
+#plt.show
+
+##########
+#Solar Power:
+############
+chanel_number_for_solar=[i for i, elem in enumerate(channels_labels) if 'Solar power (ALL) [kW]' in elem]
+
+fig_solar, axes_solar = plt.subplots(nrows=1, 
+                           ncols=1,
+                           figsize=(15,5))
+
+total_datalog_df.plot(y=total_datalog_df.columns[chanel_number_for_solar],
+                      figsize=(12,6),
+                      ax=axes_solar)
+axes_solar.set_ylabel('Power [kW]', fontsize=12)
+axes_solar.set_title('Solar Production', fontsize=12, weight="bold")
+axes_solar.grid(True)
 
 
-#Temps en transfert:
+##########
+#Time on the genset:
+############
+
+
 chanel_number_for_transfer=[i for i, elem in enumerate(channels_labels) if 'XT-Transfert' in elem]
 minutes_without_transfer=np.count_nonzero(total_datalog_df.values[:,chanel_number_for_transfer] == 0.0) 
 minutes_with_transfer=np.count_nonzero(total_datalog_df.values[:,chanel_number_for_transfer] == 1.0)
@@ -247,11 +246,7 @@ ax_transfer.pie([minutes_with_transfer,minutes_without_transfer],
 
 
 #Analyse Batterie
-#
-#fig = plt.figure()
-#ax = plt.subplot(111)
-#df1['Col1'].plot(ax=ax)
-#df2['Col2'].plot(ax=ax)
+
 
 fig_batt_anlys, axes_batt_anlys = plt.subplots(nrows=1, 
                            ncols=1,
@@ -268,9 +263,9 @@ month_mean_df.plot(y=month_mean_df.columns[chanels_number_ubat[1]],
                       color='r',
                       ax=axes_batt_anlys)
 
-plt.ylabel('Voltage [V]', fontsize=12)
-plt.title('All Battery Voltages', fontsize=12, weight="bold")
-plt.grid(True)
+axes_batt_anlys.set_ylabel('Voltage [V]', fontsize=12)
+axes_batt_anlys.set_title('All Battery Voltages', fontsize=12, weight="bold")
+axes_batt_anlys.grid(True)
 
 #axes4.bar(x=month_mean_df.index, 
 #        y=total_datalog_df.columns[chanels_number_ubat],
@@ -307,9 +302,9 @@ month_kwh_df[['Solar power (ALL) [kW] I17999 ALL','XT-Pin a [kW] I3119 L1-1','XT
                       stacked=False,
                       ax=axes_ener)
 
-plt.ylabel('Energy [kWh]', fontsize=12)
-plt.title('Energies Mensuelles', fontsize=12, weight="bold")
-plt.grid(True)
+axes_ener.set_ylabel('Energy [kWh]', fontsize=12)
+axes_ener.set_title('Energies Mensuelles', fontsize=12, weight="bold")
+axes_ener.grid(True)
 
 plt.show()
 
@@ -341,14 +336,14 @@ month_kwh_df['XT-Pout a [kW] I3101 L1-1'].plot(kind='line',
                       use_index=False)
 
 
-plt.ylabel('Energy [kWh]', fontsize=12)
+axes_ener2.set_ylabel('Energy [kWh]', fontsize=12)
 
 #replace labels with the month name:
 loc, label= plt.xticks()
 plt.xticks(loc,labels=list(month_kwh_df.index.month_name()) )
 
-plt.title('Energies Mensuelles', fontsize=12, weight="bold")
-plt.grid(True)
+axes_ener2.set_title('Energies Mensuelles', fontsize=12, weight="bold")
+axes_ener2.grid(True)
 
 
 
@@ -365,45 +360,8 @@ plt.grid(True)
 
 
 
-#
-#######
-## Charge /discharge power
-########
-#
-#chanel_number_for_UbattBSP=[i for i, elem in enumerate(channels_labels) if 'BSP-Ubat [Vdc]' in elem]
-#chanel_number_for_IbattBSP=[i for i, elem in enumerate(channels_labels) if 'BSP-Ibat [Adc]' in elem]
-#
-#
-#battery_power=total_datalog_df.values[:,chanel_number_for_UbattBSP]*total_datalog_df.values[:,chanel_number_for_IbattBSP]/1000
 
-#battery_power_df=pd.DataFrame({"Battery Power [kW]": battery_power,
-#                               "Battery Charge Power [kW]": battery_power,
-#                               "Battery Discharge Power [kW]": battery_power},
-#                                index=total_datalog_df.index)
-#                               
-#                               
-
-
-#t = np.arange(0.0, 2, 0.01)
-#s1 = np.sin(2*np.pi*t)
-#s2 = 1.2*np.sin(4*np.pi*t)
 #
-#
-#fig, ax = plt.subplots(20)
-#ax.set_title('using span_where')
-#ax.plot(t, s1, color='black')
-#ax.axhline(0, color='black', lw=2)
-#
-#collection = collections.BrokenBarHCollection.span_where(
-#    t, ymin=0, ymax=1, where=s1 > 0, facecolor='green', alpha=0.5)
-#ax.add_collection(collection)
-#
-#collection = collections.BrokenBarHCollection.span_where(
-#    t, ymin=-1, ymax=0, where=s1 < 0, facecolor='red', alpha=0.5)
-#ax.add_collection(collection)
-#
-#
-#plt.show()
 
 
 
@@ -485,57 +443,3 @@ plt.grid(True)
 #
 #
 #
-#fig3=plt.figure(3)
-#plt.clf()
-#plt.plot(minutes_of_the_day/60, grid_power, 'b')
-#
-#
-#plt.xlabel('Time (hours)', fontsize=12)
-#plt.ylabel('Power [kW]', fontsize=12)
-#plt.title('Grid Power', fontsize=18, weight="bold")
-#
-#plt.ax = fig3.gca()
-#plt.ax.grid(True)
-#
-#plt.show()
-#
-#
-#fig4=plt.figure(4)
-#plt.clf()
-#plt.plot(minutes_of_the_day/60, BSP_I_batt_val, 'b')
-#
-#
-#plt.xlabel('Time (hours)', fontsize=12)
-#plt.ylabel('I [A dc]', fontsize=12)
-#plt.title('Battery Current', fontsize=18, weight="bold")
-#
-#plt.ax = fig4.gca()
-#plt.ax.grid(True)
-#
-#
-
-#fig1.legend(['mesure XT', 'mesure BSP', 'xt min'])
-
-
-
-##pour un essai de vitesse d'affichage on stack 2^11 fois la journée, soit 2048 jours, soit 5,6 ans
-#
-#batt_val_long=batt_val
-#for k in range(11):
-#    batt_val_long=np.append(batt_val_long,batt_val_long)
-#    
-#    
-#fig3=plt.figure(3)
-#plt.clf()
-#plt.plot(batt_val_long, 'r+-')
-#
-#plt.xlabel('Voltage')
-#plt.ylabel('Occurence')
-#plt.title('Histogram of Battery Voltage')
-#plt.text(52, 25, r'$\mu=100,\ \sigma=15$')
-##plt.axis([40, 60, 0, 0.03])
-#plt.grid(True)
-#plt.show()
-#
-#plt.ax = fig3.gca()
-#plt.ax.grid(True)
