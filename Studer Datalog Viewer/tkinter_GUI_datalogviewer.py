@@ -70,6 +70,25 @@ def popuphelp():
     )
 
 
+def getfilepath():
+    """Get the filepath for csv import from the user
+
+    Returns:
+        A file path to the selected file.
+        If no file is selected return None
+    """
+    filepath = filedialog.askopenfilename(
+        title="Choose an file",
+        filetypes=(("csv files", ("*.csv", "*.CSV")), ("all files", "*.*")),
+    )
+    if not filepath:
+        # An empty tuple will be returned if there is no file selected
+        return None
+    filename = os.path.split(filepath)[1]
+    folder_path = os.path.split(filepath)[0]
+    return filepath
+
+
 class DatalogVisuApp(tk.Tk):
     def __init__(self, *args, **kwargs):
 
