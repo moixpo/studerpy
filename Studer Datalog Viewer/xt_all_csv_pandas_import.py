@@ -48,6 +48,12 @@ user_delimiter=','  # ',' for english Excel display and ';' for french Excel opt
 
 user_delimiter='[,|;]'  # for all types of files. work only with python engine in csv_read, to accelerate and use c engine, use a single delimiter
 
+# Output Dataframe names for storage
+MIN_DATAFRAME_NAME = "saved_dataframe_log_min"
+QUARTERS_DATAFRAME_NAME = 'saved_dataframe_log_quarters'
+DAY_DATAFRAME_NAME = 'saved_dataframe_log_day'
+MONTH_DATAFRAME_NAME ='saved_dataframe_log_month'
+YEAR_DATAFRAME_NAME ='saved_dataframe_log_year'
 
 
 def main():
@@ -367,21 +373,11 @@ def run(file_path):
     #***************************************
     #Save in file the precomputed datas for later for the graph display
     #***************************************
-
-    file_name='saved_dataframe_log_min'
-    total_datalog_df.to_pickle(file_name) 
-    file_name='saved_dataframe_log_quarters'
-    quarters_mean_df.to_pickle(file_name) 
-
-
-
-    #total_datalog_df = pd.read_pickle(file_name)
-    file_name='saved_dataframe_log_day'
-    day_mean_df.to_pickle(file_name) 
-    file_name='saved_dataframe_log_month'
-    month_mean_df.to_pickle(file_name) 
-    file_name='saved_dataframe_log_year'
-    year_mean_df.to_pickle(file_name) 
+    total_datalog_df.to_pickle(MIN_DATAFRAME_NAME) 
+    quarters_mean_df.to_pickle(QUARTERS_DATAFRAME_NAME) 
+    day_mean_df.to_pickle(DAY_DATAFRAME_NAME) 
+    month_mean_df.to_pickle(MONTH_DATAFRAME_NAME) 
+    year_mean_df.to_pickle(YEAR_DATAFRAME_NAME) 
 
 
     #import matplotlib.pyplot as plt
