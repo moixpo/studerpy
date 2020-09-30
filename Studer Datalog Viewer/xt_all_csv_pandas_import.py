@@ -3,10 +3,10 @@
 #  Version  2.1  june 2020
 #  Moix P-O
 #  Copyright Albedo-Engineering WWW.ALBEDO-ENGINEERING.COM
-# 
-  
-xt_datalog_viewer_pandas.py
-  
+#
+
+File: xt_all_datalog_viewer_pandas.py
+Description: Convert multiple CSVs to pickled dataframes for graphing
 """
 
 
@@ -62,7 +62,12 @@ def main():
     file_path = filedialog.askopenfilename()
     run(file_path)
 
+
 def run(file_path):
+    """API entrypoint
+
+    Args:
+        file_path: file path from which to start the import process"""
     filename= os.path.split(file_path)[1]
     folder_path = os.path.split(file_path)[0]
 
