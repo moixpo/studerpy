@@ -16,17 +16,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-file_name='saved_dataframe_log_min'
-total_datalog_df = pd.read_pickle(file_name)
-file_name='saved_dataframe_log_quarters'
-quarters_mean_df=pd.read_pickle(file_name) 
+import xt_all_csv_pandas_import
 
-file_name='saved_dataframe_log_day'
-day_mean_df = pd.read_pickle(file_name)
-file_name='saved_dataframe_log_month'
-month_mean_df = pd.read_pickle(file_name)
-file_name='saved_dataframe_log_year'
-year_mean_df = pd.read_pickle(file_name)
+total_datalog_df = pd.read_pickle(xt_all_csv_pandas_import.MIN_DATAFRAME_NAME)
+quarters_mean_df = pd.read_pickle(xt_all_csv_pandas_import.QUARTERS_DATAFRAME_NAME)
+day_mean_df = pd.read_pickle(xt_all_csv_pandas_import.DAY_DATAFRAME_NAME)
+month_mean_df = pd.read_pickle(xt_all_csv_pandas_import.MONTH_DATAFRAME_NAME)
+year_mean_df = pd.read_pickle(xt_all_csv_pandas_import.YEAR_DATAFRAME_NAME)
 
 
 #%***************************************
