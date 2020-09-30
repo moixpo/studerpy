@@ -113,6 +113,7 @@ class DatalogVisuApp(tk.Tk):
 
         self.frames = {}
 
+        # All frames here MUST subclass ActivateFrame if they use self.show_frame
         for F in (StartPage, PageLoadData, PageGraph):
 
             frame = F(container, self)
@@ -154,12 +155,19 @@ class DatalogVisuApp(tk.Tk):
 
     def show_frame(self, cont):
         frame = self.frames[cont]
+        frame.activate()
         frame.tkraise()
 
 
-class StartPage(tk.Frame):
+class ActivateFrame(tk.Frame):
+    def activate(self):
+        """Hook to perform actions when the frame is active"""
+        pass
+
+
+class StartPage(ActivateFrame):
     def __init__(self, parent, controller):
-        tk.Frame.__init__(self, parent)
+        super().__init__(parent)
 
         self.image = Image.open("snowflake.jpg")
         self.img_copy = self.image.copy()
@@ -200,29 +208,11 @@ class StartPage(tk.Frame):
         self.background_image = ImageTk.PhotoImage(self.image)
         self.background.configure(image=self.background_image)
 
-def getfilepath():
-    """Get the filepath for csv import from the user
 
-    Returns:
-        A file path to the selected file.
-        If no file is selected return None
-    """
-    filepath = filedialog.askopenfilename(
-        title="Choose an file",
-        filetypes=(("csv files", ("*.csv", "*.CSV")), ("all files", "*.*")),
-    )
-    if not filepath:
-        # An empty tuple will be returned if there is no file selected
-        return None
-    filename = os.path.split(filepath)[1]
-    folder_path = os.path.split(filepath)[0]
-    return filepath
-
-
-class PageLoadData(tk.Frame):
+class PageLoadData(ActivateFrame):
     """Handle loading of page data"""
     def __init__(self, parent, controller):
-        tk.Frame.__init__(self, parent)
+        super().__init__(parent)
         label = tk.Label(self, text="Load Data!!!", font=LARGE_FONT)
         label.pack(pady=10, padx=10)
 
@@ -242,46 +232,34 @@ class PageLoadData(tk.Frame):
         filepath = getfilepath()
         if filepath is None:
             return
+        # XXX: A progress bar may make sense here
         xt_all_csv_pandas_import.run(filepath)
 
 
-class PageGraph(tk.Frame):
+class PageGraph(ActivateFrame):
     def __init__(self, parent, controller):
-        tk.Frame.__init__(self, parent)
+        super().__init__(parent)
         pagetitle = tk.Label(self, text="Battery", font=LARGE_FONT)
         pagetitle.pack(pady=10, padx=10)
 
         ######
-        n = ttk.Notebook(self)  # Create notebook system
-        n.pack()
+        self.notebook = ttk.Notebook(self)  # Create notebook system
+        self.notebook.pack()
 
-        tab1 = ttk.Frame(n)  # Add tab 1
-        tab1.pack()
-        tab2 = ttk.Frame(n)  # Ajout de l'onglet 2
-        tab2.pack()
-        tab3 = ttk.Frame(n)  # Ajout de l'onglet 2
-        tab3.pack()
-        n.add(tab1, text="Voltage-current")  # Name of tab 1
-        n.add(tab2, text="Histogramm Voltage")  # Name of tab 2
-        n.add(tab3, text="Daily IN-OUT")  # Name of tab 3
-        ###########
+        self.voltage_current_tab = ttk.Frame(self.notebook)  # Add tab 1
+        self.voltage_current_tab.pack()
+        self.histogram_tab = ttk.Frame(self.notebook)  # Ajout de l'onglet 2
+        self.histogram_tab.pack()
+        self.daily_tab = ttk.Frame(self.notebook)  # Ajout de l'onglet 2
+        self.daily_tab.pack()
+        self.notebook.add(self.voltage_current_tab, text="Voltage-current")  # Name of tab 1
+        self.notebook.add(self.histogram_tab, text="Histogramm Voltage")  # Name of tab 2
+        self.notebook.add(self.daily_tab, text="Daily IN-OUT")  # Name of tab 3
 
-        # TODO:  To put on the tab....
-        f = Figure(figsize=(5, 5), dpi=100)
 
-        # fig, (ax1, ax2) = plt.subplots(2, 1)
-
-        ax1 = f.add_subplot(2, 1, 1)
-
-        ax1.plot([1, 2, 3, 4, 5, 6, 7, 8], [5, 6, 1, 3, 8, 9, 3, 5])
-        ax1.set_ylabel("Voltage [V]", fontsize=12)
-        ax1.set_xlabel("Time", fontsize=12)
-        ax2 = f.add_subplot(2, 1, 2)
-        ax2.plot([1, 2, 3, 4, 5, 6, 7, 8], [5, 6, 1, 3, 8, 9, 3, 5])
-        ax2.set_ylabel("Current [V]", fontsize=12)
-        ax2.set_xlabel("Time", fontsize=12)
-
-        canvas = FigureCanvasTkAgg(f, self)
+    def activate(self):
+        fig = generate_voltage_figure()
+        canvas = FigureCanvasTkAgg(fig, self.voltage_current_tab)
         canvas.draw()
         canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
@@ -302,6 +280,20 @@ class PageGraph(tk.Frame):
 #        button1 = ttk.Button(self, text="Back to Home",
 #                            command=lambda: controller.show_frame(StartPage))
 #        button1.pack()
+
+
+def generate_voltage_figure():
+    fig = Figure(figsize=(5, 5), dpi=100)
+    ax1 = fig.add_subplot(2, 1, 1)
+
+    ax1.plot([1, 2, 3, 4, 5, 6, 7, 8], [5, 6, 1, 3, 8, 9, 3, 5])
+    ax1.set_ylabel("Voltage [V]", fontsize=12)
+    ax1.set_xlabel("Time", fontsize=12)
+    ax2 = fig.add_subplot(2, 1, 2)
+    ax2.plot([1, 2, 3, 4, 5, 6, 7, 8], [5, 6, 1, 3, 8, 9, 3, 5])
+    ax2.set_ylabel("Current [V]", fontsize=12)
+    ax2.set_xlabel("Time", fontsize=12)
+    return fig
 
 
 if __name__ == "__main__":
