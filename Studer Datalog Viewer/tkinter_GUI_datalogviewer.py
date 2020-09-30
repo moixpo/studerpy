@@ -36,6 +36,8 @@ import time
 import datetime
 import os
 
+import xt_all_csv_pandas_import
+
 
 ########################
 # 1 Constants
@@ -68,30 +70,17 @@ def popuphelp():
     )
 
 
-def getfilepath():
-    # file_path = filedialog.askopenfilename()
-    file_path = filedialog.askopenfilename(
-        title="Choose an file",
-        filetypes=(("csv files", "*.csv"), ("all files", "*.*")),
-    )
-    filename = os.path.split(file_path)[1]
-    folder_path = os.path.split(file_path)[0]
-
-    # filename = file_path.split('/')
-    # panel = tk.Label(self, text= str(file_name[len(file_name)-1]).upper()).pack()
-    # panel_image = tk.Label(self, image=img).pack()
-
-
 class DatalogVisuApp(tk.Tk):
     def __init__(self, *args, **kwargs):
 
-        tk.Tk.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         s = tk.ttk.Style()
 
         if os.name == "nt":
-            # The theme and icon fail to run on Windows
-            tk.Tk.iconbitmap(self, default=USED_ICON)
+            # The theme and icon fail to run on Linux because they are
+            # Windows specific
+            tk.Tk.iconphoto(self, default=USED_ICON)
             s.theme_use("vista")
 
         tk.Tk.wm_title(self, "Datalog Graph Viewer")
@@ -192,14 +181,33 @@ class StartPage(tk.Frame):
         self.background_image = ImageTk.PhotoImage(self.image)
         self.background.configure(image=self.background_image)
 
+def getfilepath():
+    """Get the filepath for csv import from the user
+
+    Returns:
+        A file path to the selected file.
+        If no file is selected return None
+    """
+    filepath = filedialog.askopenfilename(
+        title="Choose an file",
+        filetypes=(("csv files", ("*.csv", "*.CSV")), ("all files", "*.*")),
+    )
+    if not filepath:
+        # An empty tuple will be returned if there is no file selected
+        return None
+    filename = os.path.split(filepath)[1]
+    folder_path = os.path.split(filepath)[0]
+    return filepath
+
 
 class PageLoadData(tk.Frame):
+    """Handle loading of page data"""
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         label = tk.Label(self, text="Load Data!!!", font=LARGE_FONT)
         label.pack(pady=10, padx=10)
 
-        button1 = ttk.Button(self, text="Select CSV file", command=getfilepath)
+        button1 = ttk.Button(self, text="Select CSV file", command=self.load_data_from_filepath)
         button1.pack()
 
         button2 = ttk.Button(
@@ -210,6 +218,12 @@ class PageLoadData(tk.Frame):
         text_widget = tk.Text(self, width=50, height=10)
         text_widget.insert(tk.END, "Text to plot outputs and messages when importing")
         text_widget.pack()
+
+    def load_data_from_filepath(self):
+        filepath = getfilepath()
+        if filepath is None:
+            return
+        xt_all_csv_pandas_import.run(filepath)
 
 
 class PageGraph(tk.Frame):
