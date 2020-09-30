@@ -35,8 +35,21 @@ from PIL import ImageTk, Image
 import time
 import datetime
 import os
+from functools import partial
 
 import xt_all_csv_pandas_import
+from xt_graph_plotter_pandas import (
+    build_total_battery_voltages_currents_figure,
+    build_battery_voltage_histogram_figure,
+    build_ac_power_figure,
+    build_power_histogram_figure,
+    build_voltage_versus_current_figure,
+    build_solar_production_figure,
+    build_genset_time_figure,
+    build_all_battery_voltages_figure,
+    build_montly_energies_figure,
+    build_montly_energies_figure2,
+)
 
 
 ########################
@@ -57,9 +70,7 @@ style.use("ggplot")
 
 
 def popupinfo():
-    messagebox.showinfo(
-        "Infos about this", "This is an datalog viewer for csv files..."
-    )
+    messagebox.showinfo("Infos about this", "This is an datalog viewer for csv files...")
 
 
 def popuphelp():
@@ -87,6 +98,15 @@ def getfilepath():
     filename = os.path.split(filepath)[1]
     folder_path = os.path.split(filepath)[0]
     return filepath
+
+
+def load_and_show_graphs(controller):
+    """A callback to load the graph data when the graph frame is opened
+
+    This callback needs to be partialed (curried) because of the argument
+    """
+    controller.frames[PageGraph].load_graphs_from_data()
+    controller.show_frame(PageGraph)
 
 
 class DatalogVisuApp(tk.Tk):
@@ -129,14 +149,12 @@ class DatalogVisuApp(tk.Tk):
 
         # create a pulldown menu, and add it to the menu bar
         filemenu = tk.Menu(menubar, tearoff=0)
+        filemenu.add_command(label="Home Page", command=lambda: self.show_frame(StartPage))
+        filemenu.add_command(label="Load data", command=lambda: self.show_frame(PageLoadData))
+
         filemenu.add_command(
-            label="Home Page", command=lambda: self.show_frame(StartPage)
-        )
-        filemenu.add_command(
-            label="Load data", command=lambda: self.show_frame(PageLoadData)
-        )
-        filemenu.add_command(
-            label="See graph", command=lambda: self.show_frame(PageGraph)
+            label="See graph",
+            command=partial(load_and_show_graphs, self),
         )
         filemenu.add_separator()
         filemenu.add_command(label="Exit", command=self.quit)
@@ -157,6 +175,11 @@ class DatalogVisuApp(tk.Tk):
         frame = self.frames[cont]
         frame.activate()
         frame.tkraise()
+
+    def destroy(self):
+        # Tkinter will hang and fail to exit if not all matplotlib plots are closed
+        plt.close("all")
+        super().destroy()
 
 
 class ActivateFrame(tk.Frame):
@@ -192,7 +215,9 @@ class StartPage(ActivateFrame):
         #        button2.pack()
 
         button3 = ttk.Button(
-            self, text="Display graph", command=lambda: controller.show_frame(PageGraph)
+            self,
+            text="Display graph",
+            command=partial(load_and_show_graphs, controller),
         )
 
         button3.place(relx=0.6, rely=0.5, anchor=tk.CENTER)
@@ -209,33 +234,6 @@ class StartPage(ActivateFrame):
         self.background.configure(image=self.background_image)
 
 
-class PageLoadData(ActivateFrame):
-    """Handle loading of page data"""
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        label = tk.Label(self, text="Load Data!!!", font=LARGE_FONT)
-        label.pack(pady=10, padx=10)
-
-        button1 = ttk.Button(self, text="Select CSV file", command=self.load_data_from_filepath)
-        button1.pack()
-
-        button2 = ttk.Button(
-            self, text="Display graph", command=lambda: controller.show_frame(PageGraph)
-        )
-        button2.pack()
-
-        text_widget = tk.Text(self, width=50, height=10)
-        text_widget.insert(tk.END, "Text to plot outputs and messages when importing")
-        text_widget.pack()
-
-    def load_data_from_filepath(self):
-        filepath = getfilepath()
-        if filepath is None:
-            return
-        # XXX: A progress bar may make sense here
-        xt_all_csv_pandas_import.run(filepath)
-
-
 class PageGraph(ActivateFrame):
     def __init__(self, parent, controller):
         super().__init__(parent)
@@ -246,26 +244,123 @@ class PageGraph(ActivateFrame):
         self.notebook = ttk.Notebook(self)  # Create notebook system
         self.notebook.pack()
 
-        self.voltage_current_tab = ttk.Frame(self.notebook)  # Add tab 1
-        self.voltage_current_tab.pack()
-        self.histogram_tab = ttk.Frame(self.notebook)  # Ajout de l'onglet 2
-        self.histogram_tab.pack()
-        self.daily_tab = ttk.Frame(self.notebook)  # Ajout de l'onglet 2
-        self.daily_tab.pack()
-        self.notebook.add(self.voltage_current_tab, text="Voltage-current")  # Name of tab 1
-        self.notebook.add(self.histogram_tab, text="Histogramm Voltage")  # Name of tab 2
-        self.notebook.add(self.daily_tab, text="Daily IN-OUT")  # Name of tab 3
+        # Keep track of created tabs
+        self.tabs = []
 
+    def build_tab(self, text):
+        tab = ttk.Frame(self.notebook)
+        tab.pack()
+        self.notebook.add(tab, text=text)
+        return tab
 
-    def activate(self):
-        fig = generate_voltage_figure()
-        canvas = FigureCanvasTkAgg(fig, self.voltage_current_tab)
-        canvas.draw()
+    def load_graphs_from_data(self):
+        """Load matplotlib graphs from pickled pandas data and attach them to tabs"""
+        for tab in self.tabs:
+            # Destroy tabs to make way for new data
+            tab.destroy()
+        # Discard former matplotlib plots from memory
+        plt.close("all")
+        self.tabs = []
+
+        total_datalog_df = pd.read_pickle(xt_all_csv_pandas_import.MIN_DATAFRAME_NAME)
+        quarters_mean_df = pd.read_pickle(xt_all_csv_pandas_import.QUARTERS_DATAFRAME_NAME)
+        # day_mean_df = pd.read_pickle(xt_all_csv_pandas_import.DAY_DATAFRAME_NAME)
+        month_mean_df = pd.read_pickle(xt_all_csv_pandas_import.MONTH_DATAFRAME_NAME)
+        # year_mean_df = pd.read_pickle(xt_all_csv_pandas_import.YEAR_DATAFRAME_NAME)
+
+        # This data structure loads each figure and supplies the the tab title in one
+        # place for all graph tabs
+        # XXX: This is where it can get slow. This code could use
+        # a progress bar but it would require some rewriting
+        figures_and_title = (
+            (
+                build_total_battery_voltages_currents_figure(total_datalog_df),
+                "Voltage-current",
+            ),
+            (
+                build_battery_voltage_histogram_figure(total_datalog_df, quarters_mean_df),
+                "Histogram Voltage",
+            ),
+            (
+                build_ac_power_figure(total_datalog_df, quarters_mean_df),
+                "AC Power",
+            ),
+            (
+                build_power_histogram_figure(quarters_mean_df, total_datalog_df),
+                "Histogram Power",
+            ),
+            (
+                build_voltage_versus_current_figure(total_datalog_df),
+                "Volt vs Current",
+            ),
+            (
+                build_solar_production_figure(total_datalog_df),
+                "Solar Production",
+            ),
+            (
+                build_genset_time_figure(total_datalog_df),
+                "Genset Time",
+            ),
+            (
+                build_all_battery_voltages_figure(total_datalog_df, month_mean_df),
+                "All Battery Voltages",
+            ),
+            (
+                build_montly_energies_figure(total_datalog_df),
+                "Montly Energies",
+            ),
+            (
+                build_montly_energies_figure2(total_datalog_df),
+                "Monthly Energies2",
+            ),
+        )
+
+        for figure, tab_text in figures_and_title:
+            self.attach_figure_to_new_tab(figure, tab_text)
+
+    def attach_figure_to_new_tab(self, figure, text):
+        tab = self.build_tab(text)
+        self.attach_figure_to_tab(figure, tab)
+        self.tabs.append(tab)
+
+    def attach_figure_to_tab(self, figure, tab):
+        """Attach a matplotlib figure to a tkinter tab"""
+        canvas = FigureCanvasTkAgg(figure, tab)
         canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-
-        toolbar = NavigationToolbar2Tk(canvas, self)
+        toolbar = NavigationToolbar2Tk(canvas, tab)
         toolbar.update()
-        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+
+class PageLoadData(ActivateFrame):
+    """Handle loading of page data"""
+
+    def __init__(self, parent, controller):
+        self.controller = controller
+        super().__init__(parent)
+        label = tk.Label(self, text="Load Data!!!", font=LARGE_FONT)
+        label.pack(pady=10, padx=10)
+
+        button1 = ttk.Button(self, text="Select CSV file", command=self.load_data_from_filepath)
+        button1.pack()
+
+        button2 = ttk.Button(
+            self,
+            text="Display graph",
+            command=partial(load_and_show_graphs, controller),
+        )
+        button2.pack()
+
+        text_widget = tk.Text(self, width=50, height=10)
+        text_widget.insert(tk.END, "Text to plot outputs and messages when importing")
+        text_widget.pack()
+
+    def load_data_from_filepath(self):
+        """Call xt_all_csv_pandas_import from given filepath"""
+        filepath = getfilepath()
+        if filepath is None:
+            return
+        # TODO redirect output to message screen
+        xt_all_csv_pandas_import.run(filepath)
 
 
 #        labelscale = ttk.Label(self, text="Choose sampling rate", font=LARGE_FONT)
@@ -282,20 +377,11 @@ class PageGraph(ActivateFrame):
 #        button1.pack()
 
 
-def generate_voltage_figure():
-    fig = Figure(figsize=(5, 5), dpi=100)
-    ax1 = fig.add_subplot(2, 1, 1)
-
-    ax1.plot([1, 2, 3, 4, 5, 6, 7, 8], [5, 6, 1, 3, 8, 9, 3, 5])
-    ax1.set_ylabel("Voltage [V]", fontsize=12)
-    ax1.set_xlabel("Time", fontsize=12)
-    ax2 = fig.add_subplot(2, 1, 2)
-    ax2.plot([1, 2, 3, 4, 5, 6, 7, 8], [5, 6, 1, 3, 8, 9, 3, 5])
-    ax2.set_ylabel("Current [V]", fontsize=12)
-    ax2.set_xlabel("Time", fontsize=12)
-    return fig
+def main():
+    """Main entry point for the gui"""
+    app = DatalogVisuApp()
+    app.mainloop()
 
 
 if __name__ == "__main__":
-    app = DatalogVisuApp()
-    app.mainloop()
+    main()
