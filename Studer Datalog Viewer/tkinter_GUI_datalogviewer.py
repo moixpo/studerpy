@@ -33,6 +33,7 @@ from tkinter import filedialog
 from PIL import ImageTk, Image
 
 import time
+import types
 import datetime
 import os
 from functools import partial
@@ -188,6 +189,39 @@ class ActivateFrame(tk.Frame):
         pass
 
 
+class TabConfiguration:
+    """This is a data class for building a tab with a figure in it"""
+    def __init__(self, func, func_args, title):
+        """
+        Args:
+            func: a function which returns a matplotlib figure
+            func_args:
+                a tuple containing the arguments for `func`
+                We Don't call the function here because the function calls
+                can take quite a bit of time, and want to show a progress
+                bar between figures
+            title:
+                The title of the tkinter tab to show
+        """
+        if not callable(func):
+            raise TypeError("TabConfiguration func must be a callable")
+        if not isinstance(func_args, (tuple, list)):
+            raise TypeError("TabConfiguration func_args must be a container")
+        if not isinstance(title, str):
+            raise TypeError("TabConfiguration title must be text")
+        self.func = func
+        self.func_args = func_args
+        self.title = title
+
+    def build_figure(self):
+        """Apply the given arguments to the given function
+
+        Returns:
+            `self.func` result which should be a matplotlib `Figure` object
+        """
+        return self.func(*self.func_args)
+
+
 class StartPage(ActivateFrame):
     def __init__(self, parent, controller):
         super().__init__(parent)
@@ -264,59 +298,68 @@ class PageGraph(ActivateFrame):
 
         total_datalog_df = pd.read_pickle(xt_all_csv_pandas_import.MIN_DATAFRAME_NAME)
         quarters_mean_df = pd.read_pickle(xt_all_csv_pandas_import.QUARTERS_DATAFRAME_NAME)
-        # day_mean_df = pd.read_pickle(xt_all_csv_pandas_import.DAY_DATAFRAME_NAME)
         month_mean_df = pd.read_pickle(xt_all_csv_pandas_import.MONTH_DATAFRAME_NAME)
         # year_mean_df = pd.read_pickle(xt_all_csv_pandas_import.YEAR_DATAFRAME_NAME)
 
         # This data structure loads each figure and supplies the the tab title in one
-        # place for all graph tabs
-        # XXX: This is where it can get slow. This code could use
-        # a progress bar but it would require some rewriting
-        figures_and_title = (
-            (
-                build_total_battery_voltages_currents_figure(total_datalog_df),
+
+        # tab_configuration_seq is a tuple of TabConfiguration instances:
+        tab_configuration_seq = (
+            TabConfiguration(
+                build_total_battery_voltages_currents_figure,
+                (total_datalog_df,),
                 "Voltage-current",
             ),
-            (
-                build_battery_voltage_histogram_figure(total_datalog_df, quarters_mean_df),
+            TabConfiguration(
+                build_battery_voltage_histogram_figure,
+                (total_datalog_df, quarters_mean_df),
                 "Histogram Voltage",
             ),
-            (
-                build_ac_power_figure(total_datalog_df, quarters_mean_df),
+            TabConfiguration(
+                build_ac_power_figure,
+                (total_datalog_df, quarters_mean_df),
                 "AC Power",
             ),
-            (
-                build_power_histogram_figure(quarters_mean_df, total_datalog_df),
+            TabConfiguration(
+                build_power_histogram_figure,
+                (quarters_mean_df, total_datalog_df),
                 "Histogram Power",
             ),
-            (
-                build_voltage_versus_current_figure(total_datalog_df),
+            TabConfiguration(
+                build_voltage_versus_current_figure,
+                (total_datalog_df,),
                 "Volt vs Current",
             ),
-            (
-                build_solar_production_figure(total_datalog_df),
+            TabConfiguration(
+                build_solar_production_figure,
+                (total_datalog_df,),
                 "Solar Production",
             ),
-            (
-                build_genset_time_figure(total_datalog_df),
+            TabConfiguration(
+                build_genset_time_figure,
+                (total_datalog_df,),
                 "Genset Time",
             ),
-            (
-                build_all_battery_voltages_figure(total_datalog_df, month_mean_df),
+            TabConfiguration(
+                build_all_battery_voltages_figure,
+                (total_datalog_df, month_mean_df),
                 "All Battery Voltages",
             ),
-            (
-                build_montly_energies_figure(total_datalog_df),
+            TabConfiguration(
+                build_montly_energies_figure,
+                (total_datalog_df,),
                 "Montly Energies",
             ),
-            (
-                build_montly_energies_figure2(total_datalog_df),
+            TabConfiguration(
+                build_montly_energies_figure2,
+                (total_datalog_df,),
                 "Monthly Energies2",
             ),
         )
 
-        for figure, tab_text in figures_and_title:
-            self.attach_figure_to_new_tab(figure, tab_text)
+        for tab_configuration in tab_configuration_seq:
+            figure = tab_configuration.build_figure()
+            self.attach_figure_to_new_tab(figure, tab_configuration.title)
 
     def attach_figure_to_new_tab(self, figure, text):
         tab = self.build_tab(text)
