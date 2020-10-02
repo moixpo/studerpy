@@ -191,10 +191,10 @@ class ActivateFrame(tk.Frame):
 
 class TabConfiguration:
     """This is a data class for building a tab with a figure in it"""
-    def __init__(self, func, func_args, title):
+    def __init__(self, func, func_args, title, parent):
         """
         Args:
-            func: a function which returns a matplotlib figure
+            func: a function or method which returns a matplotlib figure
             func_args:
                 a tuple containing the arguments for `func`
                 We Don't call the function here because the function calls
@@ -202,6 +202,8 @@ class TabConfiguration:
                 bar between figures
             title:
                 The title of the tkinter tab to show
+            parent:
+                The notebook to attach the figure to
         """
         if not callable(func):
             raise TypeError("TabConfiguration func must be a callable")
@@ -212,6 +214,7 @@ class TabConfiguration:
         self.func = func
         self.func_args = func_args
         self.title = title
+        self.parent = parent
 
     def build_figure(self):
         """Apply the given arguments to the given function
@@ -271,20 +274,46 @@ class StartPage(ActivateFrame):
 class PageGraph(ActivateFrame):
     def __init__(self, parent, controller):
         super().__init__(parent)
-        pagetitle = tk.Label(self, text="Battery", font=LARGE_FONT)
-        pagetitle.pack(pady=10, padx=10)
+        #pagetitle = tk.Label(self, text="Battery", font=LARGE_FONT)
+        #pagetitle.pack(pady=10, padx=10)
 
         ######
         self.notebook = ttk.Notebook(self)  # Create notebook system
         self.notebook.pack()
-
+        self.system_notebook = self.build_categorical_tab("System")
+        self.solar_notebook = self.build_categorical_tab("Solar")
+        self.battery_notebook = self.build_categorical_tab("Battery")
+        self.ac_notebook = self.build_categorical_tab("AC")
         # Keep track of created tabs
         self.tabs = []
 
-    def build_tab(self, text):
-        tab = ttk.Frame(self.notebook)
+    def build_categorical_tab(self, text):
+        """Build tabs which can hold other tabs"""
+        tab = self.build_tab(text)
+        # Frames can't have tabs so use a notebook
+        # To allow for tabs to be attached
+        categorical_notebook = ttk.Notebook(tab)
+        categorical_notebook.pack()
+        # Ctrl-tab shifts tabs
+        categorical_notebook.enable_traversal()
+        return categorical_notebook
+
+    def build_tab(self, text, parent=None):
+        """Build a tab for `parent` with `text as the title
+
+        Returns a tkinter Frame which is a tab for
+        the given notebook.
+
+        Args:
+            text: Text to display on tab
+            parent: An optional notebook for the tab-frame to attach to
+                If no parent is supplied, use the page graph main notebook
+        """
+        if parent is None:
+            parent = self.notebook
+        tab = ttk.Frame(parent)
         tab.pack()
-        self.notebook.add(tab, text=text)
+        parent.add(tab, text=text)
         return tab
 
     def load_graphs_from_data(self):
@@ -309,60 +338,77 @@ class PageGraph(ActivateFrame):
                 build_total_battery_voltages_currents_figure,
                 (total_datalog_df,),
                 "Voltage-current",
+                self.battery_notebook,
             ),
             TabConfiguration(
                 build_battery_voltage_histogram_figure,
                 (total_datalog_df, quarters_mean_df),
                 "Histogram Voltage",
+                self.battery_notebook,
             ),
             TabConfiguration(
                 build_ac_power_figure,
                 (total_datalog_df, quarters_mean_df),
                 "AC Power",
+                self.ac_notebook,
             ),
             TabConfiguration(
                 build_power_histogram_figure,
                 (quarters_mean_df, total_datalog_df),
                 "Histogram Power",
+                self.system_notebook,
             ),
             TabConfiguration(
                 build_voltage_versus_current_figure,
                 (total_datalog_df,),
                 "Volt vs Current",
+                self.battery_notebook
             ),
             TabConfiguration(
                 build_solar_production_figure,
                 (total_datalog_df,),
                 "Solar Production",
+                self.solar_notebook
             ),
             TabConfiguration(
                 build_genset_time_figure,
                 (total_datalog_df,),
                 "Genset Time",
+                self.ac_notebook,
             ),
             TabConfiguration(
                 build_all_battery_voltages_figure,
                 (total_datalog_df, month_mean_df),
                 "All Battery Voltages",
+                self.battery_notebook,
             ),
             TabConfiguration(
                 build_montly_energies_figure,
                 (total_datalog_df,),
                 "Montly Energies",
+                self.system_notebook,
             ),
             TabConfiguration(
                 build_montly_energies_figure2,
                 (total_datalog_df,),
                 "Monthly Energies2",
+                self.system_notebook,
             ),
         )
 
         for tab_configuration in tab_configuration_seq:
             figure = tab_configuration.build_figure()
-            self.attach_figure_to_new_tab(figure, tab_configuration.title)
+            self.attach_figure_to_new_tab(figure, tab_configuration.title, parent=tab_configuration.parent)
 
-    def attach_figure_to_new_tab(self, figure, text):
-        tab = self.build_tab(text)
+    def attach_figure_to_new_tab(self, figure, text, parent):
+        """Attach the given `figure` to a new tab and attach that tab to the given `parent`
+
+        Args:
+            figure: A matplotlib figure
+            text: The tab title text
+            parent: A notebook which the tab will be attached to
+        """
+        tab = self.build_tab(text, parent=parent)
         self.attach_figure_to_tab(figure, tab)
         self.tabs.append(tab)
 
@@ -370,8 +416,7 @@ class PageGraph(ActivateFrame):
         """Attach a matplotlib figure to a tkinter tab"""
         canvas = FigureCanvasTkAgg(figure, tab)
         canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-        toolbar = NavigationToolbar2Tk(canvas, tab)
-        toolbar.update()
+        NavigationToolbar2Tk(canvas, tab)
 
 
 class PageLoadData(ActivateFrame):
