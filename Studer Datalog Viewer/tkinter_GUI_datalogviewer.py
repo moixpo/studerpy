@@ -101,13 +101,56 @@ def getfilepath():
     return filepath
 
 
+class TransitionFrame(tk.Frame):
+    """Frame for transitioning between frames
+
+    The transition frame is needed to prevent
+    the user from thinking the program has
+    frozen while waiting for data to load
+    """
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid(row=0, column=0, sticky="nsew")
+        self.tkraise()
+        self.update()
+
+    def build_progress_updater(self, text):
+        """Build progress bar on transition frame
+
+        Args:
+            text: Text to display above the progress bar
+            while loading happens
+        """
+        progress_bar_and_text_container = tk.Frame(self)
+        progress_bar_and_text_container.grid()
+        label = ttk.Label(progress_bar_and_text_container, text=text)
+        label.pack()
+        progress_bar = ttk.Progressbar(
+            progress_bar_and_text_container,
+            orient="horizontal",
+            mode="determinate",
+            maximum=100,
+            value=0,
+        )
+        progress_bar.pack()
+        progress_bar.update()
+        return ProgressUpdater(progress_bar, label)
+
+
 def load_and_show_graphs(controller):
     """A callback to load the graph data when the graph frame is opened
 
     This callback needs to be partialed (curried) because of the argument
     """
-    controller.frames[PageGraph].load_graphs_from_data()
+    transition_frame = TransitionFrame(controller.frames[PageGraph].parent)
+    progress_updater = transition_frame.build_progress_updater("Loading graphs")
+    controller.frames[PageGraph].load_graphs_from_data(progress_updater)
     controller.show_frame(PageGraph)
+    transition_frame.destroy()
+
+
 
 
 class DatalogVisuApp(tk.Tk):
@@ -115,13 +158,14 @@ class DatalogVisuApp(tk.Tk):
 
         super().__init__(*args, **kwargs)
 
-        s = tk.ttk.Style()
+        tk_style = ttk.Style()
 
         if os.name == "nt":
             # The theme and icon fail to run on Linux because they are
             # Windows specific
             tk.Tk.iconphoto(self, default=USED_ICON)
-            s.theme_use("vista")
+            tk_style.theme_use("vista")
+        tk_style.configure("TProgressbar", background="red")
 
         tk.Tk.wm_title(self, "Datalog Graph Viewer")
 
@@ -134,7 +178,6 @@ class DatalogVisuApp(tk.Tk):
 
         self.frames = {}
 
-        # All frames here MUST subclass ActivateFrame if they use self.show_frame
         for F in (StartPage, PageLoadData, PageGraph):
 
             frame = F(container, self)
@@ -174,7 +217,6 @@ class DatalogVisuApp(tk.Tk):
 
     def show_frame(self, cont):
         frame = self.frames[cont]
-        frame.activate()
         frame.tkraise()
 
     def destroy(self):
@@ -183,10 +225,30 @@ class DatalogVisuApp(tk.Tk):
         super().destroy()
 
 
-class ActivateFrame(tk.Frame):
-    def activate(self):
-        """Hook to perform actions when the frame is active"""
-        pass
+class ProgressUpdater:
+    """Handle the updating of the progress bar"""
+    def __init__(self, progress_bar, label):
+        self.progress_bar = progress_bar
+        self.cur_count = progress_bar["value"]
+        self.label = label
+        self.text = label["text"]
+        self.number_of_increments = None
+
+    def set_number_of_increments(self, number_of_increments):
+        """Set the number of increments the progress bar should have"""
+        self.number_of_increments = number_of_increments
+
+    def increment(self):
+        """Increment the progress bar status"""
+        if self.number_of_increments is None:
+            raise Exception("set_number_of_increments must be called before calling increment")
+        self.progress_bar["value"] = ((self.cur_count+1) / self.number_of_increments) * self.progress_bar["maximum"]
+        self.progress_bar.update()
+        self.cur_count += 1
+
+    def set_subtext(self, subtext):
+        self.label["text"] = f"{self.text}: {subtext}"
+        self.label.update()
 
 
 class TabConfiguration:
@@ -225,7 +287,7 @@ class TabConfiguration:
         return self.func(*self.func_args)
 
 
-class StartPage(ActivateFrame):
+class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
 
@@ -271,7 +333,7 @@ class StartPage(ActivateFrame):
         self.background.configure(image=self.background_image)
 
 
-class PageGraph(ActivateFrame):
+class PageGraph(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         #pagetitle = tk.Label(self, text="Battery", font=LARGE_FONT)
@@ -280,12 +342,14 @@ class PageGraph(ActivateFrame):
         ######
         self.notebook = ttk.Notebook(self)  # Create notebook system
         self.notebook.pack()
+        parent.update()
         self.system_notebook = self.build_categorical_tab("System")
         self.solar_notebook = self.build_categorical_tab("Solar")
         self.battery_notebook = self.build_categorical_tab("Battery")
         self.ac_notebook = self.build_categorical_tab("AC")
         # Keep track of created tabs
         self.tabs = []
+        self.parent = parent
 
     def build_categorical_tab(self, text):
         """Build tabs which can hold other tabs"""
@@ -316,7 +380,7 @@ class PageGraph(ActivateFrame):
         parent.add(tab, text=text)
         return tab
 
-    def load_graphs_from_data(self):
+    def load_graphs_from_data(self, progress_updater):
         """Load matplotlib graphs from pickled pandas data and attach them to tabs"""
         for tab in self.tabs:
             # Destroy tabs to make way for new data
@@ -331,7 +395,6 @@ class PageGraph(ActivateFrame):
         # year_mean_df = pd.read_pickle(xt_all_csv_pandas_import.YEAR_DATAFRAME_NAME)
 
         # This data structure loads each figure and supplies the the tab title in one
-
         # tab_configuration_seq is a tuple of TabConfiguration instances:
         tab_configuration_seq = (
             TabConfiguration(
@@ -396,9 +459,15 @@ class PageGraph(ActivateFrame):
             ),
         )
 
-        for tab_configuration in tab_configuration_seq:
+        progress_updater.set_number_of_increments(len(tab_configuration_seq))
+        print("Building tabs")
+        for i, tab_configuration in enumerate(tab_configuration_seq):
+            print(f"Tab i:{i}")
+            progress_updater.set_subtext(f"Building {tab_configuration.title} graph")
             figure = tab_configuration.build_figure()
             self.attach_figure_to_new_tab(figure, tab_configuration.title, parent=tab_configuration.parent)
+            progress_updater.increment()
+        print("Done building tabs")
 
     def attach_figure_to_new_tab(self, figure, text, parent):
         """Attach the given `figure` to a new tab and attach that tab to the given `parent`
@@ -419,7 +488,7 @@ class PageGraph(ActivateFrame):
         NavigationToolbar2Tk(canvas, tab)
 
 
-class PageLoadData(ActivateFrame):
+class PageLoadData(tk.Frame):
     """Handle loading of page data"""
 
     def __init__(self, parent, controller):
