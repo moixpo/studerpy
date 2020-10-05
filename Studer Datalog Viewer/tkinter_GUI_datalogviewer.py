@@ -37,6 +37,8 @@ import types
 import datetime
 import os
 from functools import partial
+import sys
+from contextlib import contextmanager
 
 import xt_all_csv_pandas_import
 from xt_graph_plotter_pandas import (
@@ -51,6 +53,7 @@ from xt_graph_plotter_pandas import (
     build_montly_energies_figure,
     build_montly_energies_figure2,
 )
+from tkinter import scrolledtext
 
 
 ########################
@@ -68,6 +71,14 @@ style.use("ggplot")
 ########################
 # 2 Functions
 ########################
+@contextmanager
+def stdout_redirected(new_stdout):
+    save_stdout = sys.stdout
+    sys.stdout = new_stdout
+    try:
+        yield None
+    finally:
+        sys.stdout = save_stdout
 
 
 def popupinfo():
@@ -488,6 +499,20 @@ class PageGraph(tk.Frame):
         NavigationToolbar2Tk(canvas, tab)
 
 
+class TextWidgetIOWriter:
+    """Implements the write interface to replace stdout"""
+    def __init__(self, text_widget):
+        self.text_widget = text_widget
+
+    def write(self, line):
+        self.text_widget.configure(state="normal")
+        self.text_widget.insert(tk.END, line)
+        self.text_widget.see("end")
+        # Disable widget to disallow text to be written to it
+        self.text_widget.configure(state="disabled")
+        self.text_widget.update()
+
+
 class PageLoadData(tk.Frame):
     """Handle loading of page data"""
 
@@ -507,17 +532,21 @@ class PageLoadData(tk.Frame):
         )
         button2.pack()
 
-        text_widget = tk.Text(self, width=50, height=10)
-        text_widget.insert(tk.END, "Text to plot outputs and messages when importing")
-        text_widget.pack()
+        text_widget = scrolledtext.ScrolledText(self)
+        text_widget.configure(state="disabled")
+        text_widget.pack(fill=tk.BOTH, expand=True)
+        self.text_widget = text_widget
 
     def load_data_from_filepath(self):
         """Call xt_all_csv_pandas_import from given filepath"""
         filepath = getfilepath()
         if filepath is None:
             return
-        # TODO redirect output to message screen
-        xt_all_csv_pandas_import.run(filepath)
+        text_widget_io_writer = TextWidgetIOWriter(self.text_widget)
+        # Delete to clear previous csv import calls
+        self.text_widget.delete(0)
+        with stdout_redirected(text_widget_io_writer):
+            xt_all_csv_pandas_import.run(filepath)
 
 
 #        labelscale = ttk.Label(self, text="Choose sampling rate", font=LARGE_FONT)
