@@ -174,7 +174,7 @@ class DatalogVisuApp(tk.Tk):
         if os.name == "nt":
             # The theme and icon fail to run on Linux because they are
             # Windows specific
-            tk.Tk.iconphoto(self, default=USED_ICON)
+            self.iconbitmap(USED_ICON)
             tk_style.theme_use("vista")
         tk_style.configure("TProgressbar", background="red")
 
