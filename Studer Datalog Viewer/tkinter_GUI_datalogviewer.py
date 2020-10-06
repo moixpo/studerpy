@@ -66,6 +66,7 @@ SYNOPT_VALUES_FONT = ("Verdana", 16, "bold")
 USED_ICON = "icone_albedo.ico"
 
 style.use("ggplot")
+DEBUG = False
 
 
 ########################
@@ -473,7 +474,8 @@ class PageGraph(tk.Frame):
         progress_updater.set_number_of_increments(len(tab_configuration_seq))
         print("Building tabs")
         for i, tab_configuration in enumerate(tab_configuration_seq):
-            print(f"Tab i:{i}")
+            if DEBUG:
+                print(f"Tab i:{i}")
             progress_updater.set_subtext(f"Building {tab_configuration.title} graph")
             figure = tab_configuration.build_figure()
             self.attach_figure_to_new_tab(figure, tab_configuration.title, parent=tab_configuration.parent)
