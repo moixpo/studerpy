@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['tkinter_GUI_datalogviewer.py'],
-             pathex=['C:\\Users\\b\\tkinterdatalogviewer\\Studer Datalog Viewer'],
+             #pathex=['C:\\Users\\b\\tkinterdatalogviewer\\Studer Datalog Viewer'],
              binaries=[],
              datas=[],
              hiddenimports=[],
