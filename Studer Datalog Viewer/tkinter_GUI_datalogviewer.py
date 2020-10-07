@@ -73,13 +73,21 @@ DEBUG = False
 # 2 Functions
 ########################
 @contextmanager
-def stdout_redirected(new_stdout):
+def redirect_console_output(new_io):
+    """Redirect console output to the given IO object
+
+    The given IO object must implement a write method
+    which takes a string
+    """
     save_stdout = sys.stdout
-    sys.stdout = new_stdout
+    save_stderr = sys.stderr
+    sys.stdout = new_io
+    sys.stderr = new_io
     try:
         yield None
     finally:
         sys.stdout = save_stdout
+        sys.stderr = save_stderr
 
 
 def popupinfo():
@@ -92,6 +100,10 @@ def popuphelp():
         "Help",
         "Programm freely shared without support, please see my website and take contact if you think I can do something for you: wwww.albedo-engineering.com",
     )
+
+
+def popuperror(message):
+    messagebox.showinfo("Error", message)
 
 
 def getfilepath():
@@ -157,10 +169,18 @@ def load_and_show_graphs(controller):
     This callback needs to be partialed (curried) because of the argument
     """
     transition_frame = TransitionFrame(controller.frames[PageGraph].parent)
-    progress_updater = transition_frame.build_progress_updater("Loading graphs")
-    controller.frames[PageGraph].load_graphs_from_data(progress_updater)
-    controller.show_frame(PageGraph)
-    transition_frame.destroy()
+    try:
+        progress_updater = transition_frame.build_progress_updater("Loading graphs")
+        try:
+            controller.frames[PageGraph].load_graphs_from_data(progress_updater)
+        except Exception as exc:
+            popuperror(f"Graph loading failed with '{exc}'")
+            controller.show_frame(StartPage)
+            return
+        controller.show_frame(PageGraph)
+    finally:
+        # Cleanup
+        transition_frame.destroy()
 
 
 
@@ -509,6 +529,7 @@ class TextWidgetIOWriter:
     def write(self, line):
         self.text_widget.configure(state="normal")
         self.text_widget.insert(tk.END, line)
+        # Automatically makes scrollbar scroll to the end
         self.text_widget.see("end")
         # Disable widget to disallow text to be written to it
         self.text_widget.configure(state="disabled")
@@ -547,8 +568,11 @@ class PageLoadData(tk.Frame):
         text_widget_io_writer = TextWidgetIOWriter(self.text_widget)
         # Delete to clear previous csv import calls
         self.text_widget.delete(0)
-        with stdout_redirected(text_widget_io_writer):
-            xt_all_csv_pandas_import.run(filepath)
+        with redirect_console_output(text_widget_io_writer):
+            try:
+                xt_all_csv_pandas_import.run(filepath)
+            except Exception as exc:
+                popuperror(f"The csv import script failed with '{exc}'")
 
 
 #        labelscale = ttk.Label(self, text="Choose sampling rate", font=LARGE_FONT)
