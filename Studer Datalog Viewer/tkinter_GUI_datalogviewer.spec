@@ -2,11 +2,33 @@
 
 block_cipher = None
 
+# Data included in the output binary
+datas = [
+    ("snowflake.jpg", "."),
+    ("icone_albedo.ico", ".")
+]
+
+def add_optional_dataframes():
+    def _():
+        optional_data = (
+            "saved_dataframe_log_day",
+            "saved_dataframe_log_min",
+            "saved_dataframe_log_month",
+            "saved_dataframe_log_quarters",
+            "saved_dataframe_log_year",
+        )
+        for dataframe_file in optional_data:
+            if os.path.exists(dataframe_file):
+                yield (dataframe_file, ".")
+    return list(_())
+
+
+datas.extend(add_optional_dataframes())
 
 a = Analysis(['tkinter_GUI_datalogviewer.py'],
              #pathex=['C:\\Users\\b\\tkinterdatalogviewer\\Studer Datalog Viewer'],
              binaries=[],
-             datas=[],
+             datas=datas,
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
