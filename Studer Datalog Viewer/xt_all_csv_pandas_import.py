@@ -460,6 +460,10 @@ def run(file_path):
 
     print("--TOTAL TIME- %s seconds ---" % (new_time - start_time))
 
+
+
+if __name__ == "__main__":
+    main()
     print(" ")
     print(" __________ GRAPH DISPLAY  _______________ ")
     print(" \n \n \n ")
@@ -515,7 +519,3 @@ def run(file_path):
     print(" ")
     print(" *******  run xt_graph_plotter_pandas.py for detailled graphs  ****** ")
     print(" \n \n \n ")
-
-
-if __name__ == "__main__":
-    main()
