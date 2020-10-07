@@ -264,17 +264,14 @@ class ProgressUpdater:
         self.cur_count = progress_bar["value"]
         self.label = label
         self.text = label["text"]
-        self.number_of_increments = None
 
-    def set_number_of_increments(self, number_of_increments):
+    def set_maximum_progress_value(self, number_of_increments):
         """Set the number of increments the progress bar should have"""
-        self.number_of_increments = number_of_increments
+        self.progress_bar["maximum"] = number_of_increments
 
     def increment(self):
         """Increment the progress bar status"""
-        if self.number_of_increments is None:
-            raise Exception("set_number_of_increments must be called before calling increment")
-        self.progress_bar["value"] = ((self.cur_count+1) / self.number_of_increments) * self.progress_bar["maximum"]
+        self.progress_bar["value"] = self.cur_count+1
         self.progress_bar.update()
         self.cur_count += 1
 
@@ -491,7 +488,7 @@ class PageGraph(tk.Frame):
             ),
         )
 
-        progress_updater.set_number_of_increments(len(tab_configuration_seq))
+        progress_updater.set_maximum_progress_value(len(tab_configuration_seq))
         print("Building tabs")
         for i, tab_configuration in enumerate(tab_configuration_seq):
             if DEBUG:
