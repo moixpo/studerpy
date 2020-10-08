@@ -4,11 +4,11 @@
 
 Create a virtual environment with only the dependencies needed for installation. Please note that I've downgraded matplotlib in the `requirements.txt` to a version that works with pyinstaller.
 
-Below we create a virtualenv called venv and install the requirements into it:
+In the `"Studer  Datalog  Viewer"` directory we create a virtualenv called `venv` and install the requirements into it:
 
     python -m venv 
     .\venv\Scripts\activate
-    pip install -r reqiurements.txt
+    pip install -r requirements.txt
     pip install pyinstaller==4.0
 
 ## Build the executable
