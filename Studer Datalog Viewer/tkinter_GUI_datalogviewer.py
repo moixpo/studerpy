@@ -3,6 +3,7 @@
 Created on Mon Aug 10 23:01:42 2020
 
 @author: moix_
+@modified by: brycepg
 
 Ressources and examples:
     -https://pythonprogramming.net/passing-functions-parameters-tkinter-using-lambda/?completed=/object-oriented-programming-crash-course-tkinter/
@@ -90,10 +91,6 @@ def redirect_console_output(new_io):
         sys.stderr = save_stderr
 
 
-def popupinfo():
-    messagebox.showinfo("Infos about this", "This is an datalog viewer for csv files...")
-
-
 def popuphelp():
     # messagebox.showinfo("Help","blablablaaaa...")
     messagebox.showinfo(
@@ -104,6 +101,23 @@ def popuphelp():
 
 def popuperror(message):
     messagebox.showinfo("Error", message)
+
+
+def popup_about():
+    """Create a separate window to show about page"""
+    popup = tk.Toplevel()
+    image = Image.open(USED_ICON)
+    photo_image = ImageTk.PhotoImage(image)
+    exit_button = ttk.Button(popup, text="Ok", command=popup.destroy)
+    text_label = ttk.Label(popup, text="This is a datalog viewer for csv files...")
+    image_label = tk.Label(popup, image=photo_image)
+
+    # Ordering
+    text_label.pack()
+    image_label.pack(fill=tk.BOTH, expand=tk.YES)
+    exit_button.pack()
+
+    popup.mainloop()
 
 
 def getfilepath():
@@ -238,8 +252,10 @@ class DatalogVisuApp(tk.Tk):
 
         # create more pulldown menus
         helpmenu = tk.Menu(menubar, tearoff=0)
+
+
         helpmenu.add_command(label="Help", command=popuphelp)
-        helpmenu.add_command(label="About", command=popupinfo)
+        helpmenu.add_command(label="About", command=popup_about)
 
         menubar.add_cascade(label="More", menu=helpmenu)
 
