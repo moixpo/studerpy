@@ -27,5 +27,6 @@ Regards
 
 moixpo
 
+## Links
 
-
+[How to Build an Executable for Windows](docs/how-to-build-a-windows-executable-with-pyinstaller.md)
