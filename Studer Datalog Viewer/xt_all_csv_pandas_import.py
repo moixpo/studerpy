@@ -378,7 +378,7 @@ def run(file_path):
             total_datalog_df.values[
                 k, chanel_number_for_transfer
             ] = total_datalog_df.values[k - 1, chanel_number_for_transfer]
-            print("Transfer transition ")
+            #print("Transfer transition ")
         k += 1
 
     # print(" ")
