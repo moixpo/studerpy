@@ -17,19 +17,55 @@ import numpy as np
 import xt_all_csv_pandas_import
 
 
+#colorset
+PINK_COLOR="#FFB2C7"
+RED_COLOR="#CC0000"
+WHITE_COLOR="#FFFFFF"
+LIGHT_GREEN_COLOR="#eafff5"
+
+A_RED_COLOR="#9A031E"
+A_YELLOW_COLOR="#F7B53B"
+A_BLUE_COLOR="#2E5266"
+A_RAISINBLACK_COLOR="#272838"
+A_BLUEGREY_COLOR="#7E7F9A"
+A_GREY_COLOR="#6E8898"
+A_GREY_COLOR2="#9FB1BC"
+A_GREY_COLOR3="#F9F8F8"
+
+
+
+NX_LIGHT_BLUE="#F0F6F8"
+NX_BLUE="#6BA3B8"
+NX_BROWN="#A2A569"
+NX_LIGHT_BROWN="#E3E4D2"
+NX_PINK="#B06B96"
+NX_GREEN="#78BE20"
+
+
+
+
+#CHOICES:
+FIGURE_FACECOLOR=NX_LIGHT_BROWN
+AXE_FACECOLOR=WHITE_COLOR
+SOLAR_COLOR=A_YELLOW_COLOR
+LOAD_COLOR=A_RED_COLOR
+GENSET_COLOR=A_BLUE_COLOR
+
+
+
 def build_total_battery_voltages_currents_figure(total_datalog_df):
     all_channels_labels = list(total_datalog_df.columns)
 
     ################################
     # plot all the channels with battery voltage and current:
-    chanels_number_ubat = [i for i, elem in enumerate(all_channels_labels) if "Ubat" in elem]
-    chanels_number_ibat = [i for i, elem in enumerate(all_channels_labels) if "Ibat" in elem]
+    channels_number_ubat = [i for i, elem in enumerate(all_channels_labels) if "Ubat" in elem]
+    channels_number_ibat = [i for i, elem in enumerate(all_channels_labels) if "Ibat" in elem]
 
     # fig_bat=plt.figure()
     fig_batt, (axes_bat_u, axes_bat_i) = plt.subplots(nrows=2, ncols=1)
 
     total_datalog_df.plot(
-        y=total_datalog_df.columns[chanels_number_ubat],
+        y=total_datalog_df.columns[channels_number_ubat],
         grid=True,
         figsize=(15, 5),
         sharex=True,
@@ -41,7 +77,7 @@ def build_total_battery_voltages_currents_figure(total_datalog_df):
     axes_bat_u.grid(True)
 
     total_datalog_df.plot(
-        y=total_datalog_df.columns[chanels_number_ibat],
+        y=total_datalog_df.columns[channels_number_ibat],
         figsize=(15, 5),
         grid=True,
         sharex=True,
@@ -58,20 +94,20 @@ def build_total_battery_voltages_currents_figure(total_datalog_df):
 def build_battery_voltage_histogram_figure(total_datalog_df, quarters_mean_df):
     all_channels_labels = list(total_datalog_df.columns)
     quarters_channels_labels=list(quarters_mean_df.columns)
-    chanels_number_ubat = [i for i, elem in enumerate(all_channels_labels) if "Ubat" in elem]
-    chanel_number=chanels_number_ubat[1]
+    channels_number_ubat = [i for i, elem in enumerate(all_channels_labels) if "Ubat" in elem]
+    chanel_number=channels_number_ubat[1]
     
     fig_batt_hist, axes_bat_u_hist = plt.subplots(nrows=1, ncols=1)
 
     quarters_mean_df.plot(
-        y=quarters_mean_df.columns[chanels_number_ubat[1]],
+        y=quarters_mean_df.columns[channels_number_ubat[1]],
         figsize=(12, 6),
         kind="hist",
         bins=40,
         ax=axes_bat_u_hist,
     )
     all_channels_labels
-    print(all_channels_labels[chanels_number_ubat[1]])
+    print(all_channels_labels[channels_number_ubat[1]])
     
     plt.axvline(quarters_mean_df[quarters_channels_labels[chanel_number]].mean(), color='k', linestyle='dashed', linewidth=2)
 
@@ -86,12 +122,12 @@ def build_battery_voltage_histogram_figure(total_datalog_df, quarters_mean_df):
 
 def build_ac_power_figure(total_datalog_df, quarters_mean_df):
     all_channels_labels = list(total_datalog_df.columns)
-    chanels_number_Pactif = [i for i, elem in enumerate(all_channels_labels) if "[kW]" in elem]
-    chanels_number_Papparent = [i for i, elem in enumerate(all_channels_labels) if "[kVA]" in elem]
+    channels_number_Pactif = [i for i, elem in enumerate(all_channels_labels) if "[kW]" in elem]
+    channels_number_Papparent = [i for i, elem in enumerate(all_channels_labels) if "[kVA]" in elem]
     fig_pow, axes_pow = plt.subplots(nrows=1, ncols=2)
 
     total_datalog_df.plot(
-        y=total_datalog_df.columns[chanels_number_Pactif],
+        y=total_datalog_df.columns[channels_number_Pactif],
         figsize=(12, 6),
         ax=axes_pow[0],
     )
@@ -101,13 +137,13 @@ def build_ac_power_figure(total_datalog_df, quarters_mean_df):
     axes_pow[0].grid(True)
 
     total_datalog_df.plot(
-        y=total_datalog_df.columns[chanels_number_Papparent],
+        y=total_datalog_df.columns[channels_number_Papparent],
         marker="+",
         figsize=(12, 6),
         ax=axes_pow[1],
     )
     quarters_mean_df.plot(
-        y=quarters_mean_df.columns[chanels_number_Papparent], marker="o", ax=axes_pow[1]
+        y=quarters_mean_df.columns[channels_number_Papparent], marker="o", ax=axes_pow[1]
     )
     axes_pow[1].set_ylabel("Power apparent [kVA]", fontsize=12)
     axes_pow[1].set_title("1min and 15min AC-out Power", fontsize=12, weight="bold")
@@ -116,18 +152,72 @@ def build_ac_power_figure(total_datalog_df, quarters_mean_df):
 
 
 
-def build_power_histogram_figure(quarters_mean_df, total_datalog_df):
+def build_sys_power_figure(total_datalog_df, quarters_mean_df):
+    all_channels_labels = list(total_datalog_df.columns)
+    
+    channels_number_Pin_actif = [i for i, elem in enumerate(all_channels_labels) if "Pin a" in elem]
+    channels_number_Pout_actif = [i for i, elem in enumerate(all_channels_labels) if "Pout a" in elem]    
+    channels_number_PsolarTot = [i for i, elem in enumerate(all_channels_labels) if 'Solar power (ALL) [kW]' in elem]
+    
+    
+    #TODO: faire les sommes quand il y a plusieurs appareils
+    chanel_label_Pout_actif_tot=all_channels_labels[channels_number_Pout_actif[0]]
+    chanel_label_Pin_actif_tot=all_channels_labels[channels_number_Pin_actif[0]]
+    chanel_label_Psolar_tot=all_channels_labels[channels_number_PsolarTot[0]]
+    
+    
+    
+    #create object figure
+    fig_pow, axes_pow = plt.subplots(nrows=1, ncols=1)
+    #fig_pow.set_facecolor(FIGURE_FACECOLOR)
+    
+    #total_datalog_df.plot(y=total_datalog_df.columns[channels_number_Pactif],
+    #                      figsize=(12,6),
+    #                      ax=axes_pow[0])
+    
+    total_datalog_df.plot(y=chanel_label_Psolar_tot,
+                          figsize=(12,6),
+                          ax=axes_pow,
+                          color=SOLAR_COLOR,
+                          legend="Solar")
+    
+    total_datalog_df.plot(y=chanel_label_Pin_actif_tot,
+                          figsize=(12,6),
+                          ax=axes_pow,
+                          color=GENSET_COLOR,
+                          legend="Grid/Genset")
+    
+    total_datalog_df.plot(y=chanel_label_Pout_actif_tot,
+                          figsize=(12,6),
+                          ax=axes_pow,
+                          color=LOAD_COLOR,
+                          legend="Loads")
+    
+    
+    
+    axes_pow.set_ylabel('Power activ [kW]', fontsize=12)
+    axes_pow.set_title('System Powers', fontsize=12, weight="bold")
+    axes_pow.grid(True)
+    #axes_pow.set_facecolor(AXE_FACECOLOR)
+    #axes_pow.grid(True)
+
+    return fig_pow
+
+
+
+
+def build_power_histogram_figure(total_datalog_df, quarters_mean_df):
     all_channels_labels = list(total_datalog_df.columns)
     quarters_channels_labels=list(quarters_mean_df.columns)
-    chanels_number_Pin_actif = [i for i, elem in enumerate(all_channels_labels) if "Pin a" in elem]
-    chanels_number_Pout_actif = [i for i, elem in enumerate(all_channels_labels) if "Pout a" in elem]
+    channels_number_Pin_actif = [i for i, elem in enumerate(all_channels_labels) if "Pin a" in elem]
+    channels_number_Pout_actif = [i for i, elem in enumerate(all_channels_labels) if "Pout a" in elem]
 
 
     #take out the 0kW power (when genset/grid is not connected):    
-    #chanel_number=chanels_number_Pin_actif[0]
+    #chanel_number=channels_number_Pin_actif[0]
 
 
-    channel_number=chanels_number_Pin_actif[0]
+    channel_number=channels_number_Pin_actif[0]
     values_for_hist=quarters_mean_df.iloc[:,channel_number]
     values_for_hist2=values_for_hist[values_for_hist > 0.1]
     
@@ -136,7 +226,7 @@ def build_power_histogram_figure(quarters_mean_df, total_datalog_df):
     values_for_Pin_hist=temp[temp > 0.1]
 
     
-    channel_number=chanels_number_Pout_actif[0]
+    channel_number=channels_number_Pout_actif[0]
     values_for_Pout_hist=quarters_mean_df.iloc[:,channel_number]
 
 
@@ -152,7 +242,7 @@ def build_power_histogram_figure(quarters_mean_df, total_datalog_df):
     #        density=True
     #    )
     #    quarters_mean_df.plot(
-    #        y=quarters_mean_df.columns[chanels_number_Pin_actif[0]],
+    #        y=quarters_mean_df.columns[channels_number_Pin_actif[0]],
     #        figsize=(12, 6),
     #        kind="hist",
     #        bins=20,
@@ -160,7 +250,7 @@ def build_power_histogram_figure(quarters_mean_df, total_datalog_df):
     #        density=True
     #    )
     #    quarters_mean_df.plot(
-    #        y=quarters_mean_df.columns[chanels_number_Pout_actif[0]],
+    #        y=quarters_mean_df.columns[channels_number_Pout_actif[0]],
     #        figsize=(12, 6),
     #        kind="hist",
     #        bins=20,
@@ -190,29 +280,29 @@ def build_power_histogram_figure(quarters_mean_df, total_datalog_df):
 
 def build_voltage_versus_current_figure(total_datalog_df):
     all_channels_labels = list(total_datalog_df.columns)
-    chanels_number_ubatbsp = [i for i, elem in enumerate(all_channels_labels) if "BSP-Ubat" in elem]
-    chanels_number_ibatbsp = [i for i, elem in enumerate(all_channels_labels) if "BSP-Ibat" in elem]
+    channels_number_ubatbsp = [i for i, elem in enumerate(all_channels_labels) if "BSP-Ubat" in elem]
+    channels_number_ibatbsp = [i for i, elem in enumerate(all_channels_labels) if "BSP-Ibat" in elem]
     
 
     #take out the points with negative current only:
-    channel_number=chanels_number_ibatbsp[0]
+    channel_number=channels_number_ibatbsp[0]
     
     #copy only voltage and current
-    voltage_current_only_df=total_datalog_df[[all_channels_labels[chanels_number_ubatbsp[0]],
-                                             all_channels_labels[chanels_number_ibatbsp[0]]]]
+    voltage_current_only_df=total_datalog_df[[all_channels_labels[channels_number_ubatbsp[0]],
+                                             all_channels_labels[channels_number_ibatbsp[0]]]]
     
     #keep rows with negativ current:
-    voltage_neg_current_only_df=voltage_current_only_df[voltage_current_only_df[all_channels_labels[chanels_number_ibatbsp[0]]]<0.0]
+    voltage_neg_current_only_df=voltage_current_only_df[voltage_current_only_df[all_channels_labels[channels_number_ibatbsp[0]]]<0.0]
     
     #keep rows with positiv current:
-    voltage_pos_current_only_df=voltage_current_only_df[voltage_current_only_df[all_channels_labels[chanels_number_ibatbsp[0]]]>=0.0]
+    voltage_pos_current_only_df=voltage_current_only_df[voltage_current_only_df[all_channels_labels[channels_number_ibatbsp[0]]]>=0.0]
 
 
     fig_batt, axes_batt = plt.subplots(nrows=1, ncols=1)
     
     #    axes_batt.scatter(
-    #        total_datalog_df.values[:, chanels_number_ubatbsp],
-    #        total_datalog_df.values[:, chanels_number_ibatbsp],
+    #        total_datalog_df.values[:, channels_number_ubatbsp],
+    #        total_datalog_df.values[:, channels_number_ibatbsp],
     #        alpha=0.25
     #    )
     axes_batt.scatter(voltage_neg_current_only_df.values[:,0],
@@ -248,11 +338,35 @@ def build_solar_production_figure(total_datalog_df):
         y=total_datalog_df.columns[chanel_number_for_solar],
         figsize=(12, 6),
         ax=axes_solar,
+        color=SOLAR_COLOR
     )
+    
     axes_solar.set_ylabel("Power [kW]", fontsize=12)
     axes_solar.set_title("Solar Production", fontsize=12, weight="bold")
     axes_solar.grid(True)
     return fig_solar
+
+
+
+def build_solar_pv_voltage_figure(total_datalog_df):
+    all_channels_labels = list(total_datalog_df.columns)
+    chanel_number_for_solar = [
+        i for i, elem in enumerate(all_channels_labels) if "Upv [Vdc]" in elem
+    ]
+
+    fig_solar, axes_solar = plt.subplots(nrows=1, ncols=1, figsize=(15, 5))
+
+    total_datalog_df.plot(
+        y=total_datalog_df.columns[chanel_number_for_solar],
+        figsize=(12, 6),
+        ax=axes_solar,
+    )
+    axes_solar.set_ylabel("Voltage [Vdc]", fontsize=12)
+    axes_solar.set_title("PV input voltage", fontsize=12, weight="bold")
+    axes_solar.grid(True)
+    return fig_solar
+
+
 
 
 def build_genset_time_figure(total_datalog_df):
@@ -287,12 +401,12 @@ def build_genset_time_figure(total_datalog_df):
 
 def build_all_battery_voltages_figure(total_datalog_df, month_mean_df):
     all_channels_labels = list(total_datalog_df.columns)
-    chanels_number_ubat = [i for i, elem in enumerate(all_channels_labels) if "Ubat" in elem]
+    channels_number_ubat = [i for i, elem in enumerate(all_channels_labels) if "Ubat" in elem]
     fig_batt_anlys, axes_batt_anlys = plt.subplots(nrows=1, ncols=1, figsize=(15, 5))
     # axes4_2 = axes4.twinx()
 
     total_datalog_df.plot(
-        y=total_datalog_df.columns[chanels_number_ubat],
+        y=total_datalog_df.columns[channels_number_ubat],
         figsize=(15, 5),
         grid=True,
         title="All Battery Voltages",
@@ -300,7 +414,7 @@ def build_all_battery_voltages_figure(total_datalog_df, month_mean_df):
     )
 
     month_mean_df.plot(
-        y=month_mean_df.columns[chanels_number_ubat[1]], color="r", ax=axes_batt_anlys
+        y=month_mean_df.columns[channels_number_ubat[1]], color="r", ax=axes_batt_anlys
     )
 
     axes_batt_anlys.set_ylabel("Voltage [V]", fontsize=12)
@@ -309,7 +423,7 @@ def build_all_battery_voltages_figure(total_datalog_df, month_mean_df):
     return fig_batt_anlys
 
 
-def build_montly_energies_figure(total_datalog_df):
+def build_monthly_energies_figure(total_datalog_df):
     month_kwh_df = total_datalog_df.resample("1M").sum() / 60
     fig_ener, axes_ener = plt.subplots(nrows=1, ncols=1, figsize=(15, 5))
 
@@ -325,7 +439,11 @@ def build_montly_energies_figure(total_datalog_df):
             "XT-Pin a [kW] I3119 L1-1",
             "XT-Pout a [kW] I3101 L1-1",
         ]
-    ].plot.bar(grid=True, stacked=False, ax=axes_ener)
+    ].plot.bar(grid=True, stacked=False, ax=axes_ener, color=[SOLAR_COLOR, GENSET_COLOR, LOAD_COLOR])
+        
+    # replace labels with the month name:
+    loc, label = plt.xticks()
+    plt.xticks(loc, labels=list(month_kwh_df.index.month_name()))        
 
     axes_ener.set_ylabel("Energy [kWh]", fontsize=12)
     axes_ener.set_title("Monthly Energies", fontsize=12, weight="bold")
@@ -333,29 +451,69 @@ def build_montly_energies_figure(total_datalog_df):
     return fig_ener
 
 
-def build_montly_energies_figure2(total_datalog_df):
+def build_daily_energies_figure(total_datalog_df):
+    month_kwh_df = total_datalog_df.resample("1D").sum() / 60
+    fig_ener, axes_ener = plt.subplots(nrows=1, ncols=1, figsize=(15, 5))
+
+    # month_kwh_df['XT-Pout a [kW] I3101 L1-1'].plot(grid=True,
+    #                      kind='line',
+    #                      marker='o',
+    #                      color='red',
+    #                      ax=axes_ener)
+
+    month_kwh_df[
+        [
+            "Solar power (ALL) [kW] I17999 ALL",
+            "XT-Pin a [kW] I3119 L1-1",
+            "XT-Pout a [kW] I3101 L1-1",
+        ]
+    ].plot( grid=True, 
+                stacked=False, 
+                ax=axes_ener, 
+                color=[SOLAR_COLOR, GENSET_COLOR, LOAD_COLOR],
+                label=["Solar", "Grid/Genset", "Loads"],
+                marker="o",
+                linestyle="None"
+                )
+        
+      
+
+    axes_ener.set_ylabel("Energy [kWh]", fontsize=12)
+    axes_ener.set_title("Daily Energies", fontsize=12, weight="bold")
+    axes_ener.grid(True)
+    return fig_ener
+
+
+
+def build_monthly_energies_figure2(total_datalog_df):
     month_kwh_df = total_datalog_df.resample("1M").sum() / 60
     fig_ener2, axes_ener2 = plt.subplots(nrows=1, ncols=1, figsize=(9, 9))
+    
     month_kwh_df[["Solar power (ALL) [kW] I17999 ALL", "XT-Pin a [kW] I3119 L1-1"]].plot.bar(
         stacked=True, 
         ax=axes_ener2, 
         use_index=False, 
         align="edge", 
-        width=0.5
+        width=0.5,
+        color=[SOLAR_COLOR, GENSET_COLOR],
+        legend=['Solar', 'Grid/Genset']
     )
+
+
 
     month_kwh_df["XT-Pout a [kW] I3101 L1-1"].plot(
         kind="bar",
-        color="red",
         align="center",
         width=0.5,
         ax=axes_ener2,
         use_index=False,
-        alpha=0.5
+        color=LOAD_COLOR,
+        alpha=0.5,
+        label='Loads'
     )
 
     month_kwh_df["XT-Pout a [kW] I3101 L1-1"].plot(
-        kind="line", marker="o", color="red", ax=axes_ener2, use_index=False
+        kind="line", marker="o", color="red", ax=axes_ener2, use_index=False, label='Loads'
     )
 
     axes_ener2.set_ylabel("Energy [kWh]", fontsize=12)
@@ -365,6 +523,7 @@ def build_montly_energies_figure2(total_datalog_df):
     plt.xticks(loc, labels=list(month_kwh_df.index.month_name()))
 
     axes_ener2.set_title("Monthly Energies", fontsize=12, weight="bold")
+    axes_ener2.legend()
     axes_ener2.grid(True)
     return fig_ener2
 
@@ -397,7 +556,7 @@ def main():
     print(" \n \n \n ")
 
     all_channels_labels = list(total_datalog_df.columns)
-    chanels_number_ubat = [i for i, elem in enumerate(all_channels_labels) if "Ubat" in elem]
+    channels_number_ubat = [i for i, elem in enumerate(all_channels_labels) if "Ubat" in elem]
 
     build_total_battery_voltages_currents_figure(total_datalog_df)
     build_battery_voltage_histogram_figure(total_datalog_df, quarters_mean_df)
@@ -406,7 +565,8 @@ def main():
     # plot all the channels with Power
     # fig100=plt.figure(100)
     build_ac_power_figure(total_datalog_df, quarters_mean_df)
-    build_power_histogram_figure(quarters_mean_df, total_datalog_df)
+    build_power_histogram_figure(total_datalog_df,quarters_mean_df)
+    build_sys_power_figure(total_datalog_df,quarters_mean_df)
 
     ######################
     # Battery analysis
@@ -416,11 +576,11 @@ def main():
     #######
     ## Charge /discharge power
     ########
-    chanels_number_ubatbsp = [i for i, elem in enumerate(all_channels_labels) if "BSP-Ubat" in elem]
-    chanels_number_ibatbsp = [i for i, elem in enumerate(all_channels_labels) if "BSP-Ibat" in elem]
+    channels_number_ubatbsp = [i for i, elem in enumerate(all_channels_labels) if "BSP-Ubat" in elem]
+    channels_number_ibatbsp = [i for i, elem in enumerate(all_channels_labels) if "BSP-Ibat" in elem]
     battery_power = (
-        total_datalog_df.values[:, chanels_number_ubatbsp]
-        * total_datalog_df.values[:, chanels_number_ibatbsp]
+        total_datalog_df.values[:, channels_number_ubatbsp]
+        * total_datalog_df.values[:, channels_number_ibatbsp]
         / 1000
     )
 
@@ -437,7 +597,7 @@ def main():
     # Solar Power:
     ############
     build_solar_production_figure(total_datalog_df)
-
+    build_solar_pv_voltage_figure(total_datalog_df)
     ##########
     # Time on the genset:
     ############
@@ -448,21 +608,25 @@ def main():
     build_all_battery_voltages_figure(total_datalog_df, month_mean_df)
 
     # axes4.bar(x=month_mean_df.index,
-    #        y=total_datalog_df.columns[chanels_number_ubat],
+    #        y=total_datalog_df.columns[channels_number_ubat],
     #        color='r',
     #        ax=axes4_2)
     #
     # axes4.plot(x=total_datalog_df.index,
-    #         y=total_datalog_df.columns[chanels_number_ubat],
+    #         y=total_datalog_df.columns[channels_number_ubat],
     #         grid=True,
     #         title='All Battery Voltages',
     #         ax=axes4)
-
-    # Energies Mensuelles:
-
+    
+    
+    ############
+    # Bar Energies Mensuelles:
+    #################3
+    
     # month_kwh_df['XT-Pout a [kW] I3101 L1-1']
-    build_montly_energies_figure(total_datalog_df)
-    build_montly_energies_figure2(total_datalog_df)
+    build_monthly_energies_figure(total_datalog_df)
+    build_monthly_energies_figure2(total_datalog_df)
+    build_daily_energies_figure(total_datalog_df)
     plt.show()
 
 

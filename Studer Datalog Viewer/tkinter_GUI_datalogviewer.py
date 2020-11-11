@@ -46,13 +46,16 @@ from xt_graph_plotter_pandas import (
     build_total_battery_voltages_currents_figure,
     build_battery_voltage_histogram_figure,
     build_ac_power_figure,
+    build_sys_power_figure,
     build_power_histogram_figure,
     build_voltage_versus_current_figure,
     build_solar_production_figure,
+    build_solar_pv_voltage_figure,
     build_genset_time_figure,
     build_all_battery_voltages_figure,
-    build_montly_energies_figure,
-    build_montly_energies_figure2,
+    build_monthly_energies_figure,
+    build_monthly_energies_figure2,
+    build_daily_energies_figure
 )
 from tkinter import scrolledtext
 
@@ -65,6 +68,7 @@ LARGE_FONT = ("Verdana", 12)
 SYNOPT_VALUES_FONT = ("Verdana", 16, "bold")
 # SYNOPTIC_IMAGE_SIZE=(1000, 596)
 USED_ICON = "icone_albedo.ico"
+HELP_PICTURE="offgrid.jpg"
 
 style.use("ggplot")
 DEBUG = False
@@ -92,10 +96,9 @@ def redirect_console_output(new_io):
 
 
 def popuphelp():
-    # messagebox.showinfo("Help","blablablaaaa...")
     messagebox.showinfo(
         "Help",
-        "Programm freely shared without support, please see my website and take contact if you think I can do something for you: wwww.albedo-engineering.com",
+        "Programm freely shared without support, please see our website and take contact us you think we can do something for you: wwww.offgrid.ch",
     )
 
 
@@ -106,10 +109,10 @@ def popuperror(message):
 def popup_about():
     """Create a separate window to show about page"""
     popup = tk.Toplevel()
-    image = Image.open(USED_ICON)
+    image = Image.open(HELP_PICTURE)
     photo_image = ImageTk.PhotoImage(image)
     exit_button = ttk.Button(popup, text="Ok", command=popup.destroy)
-    text_label = ttk.Label(popup, text="This is a datalog viewer for csv files...")
+    text_label = ttk.Label(popup, text="This is a datalog viewer for csv files recorded on Studer energy systems...")
     image_label = tk.Label(popup, image=photo_image)
 
     # Ordering
@@ -457,12 +460,18 @@ class PageGraph(tk.Frame):
             TabConfiguration(
                 build_ac_power_figure,
                 (total_datalog_df, quarters_mean_df),
-                "AC Power",
+                "AC-Loads powers",
                 self.ac_notebook,
             ),
             TabConfiguration(
+                build_sys_power_figure,
+                (total_datalog_df,quarters_mean_df),
+                "System Power Flux",
+                self.system_notebook,
+            ), 
+            TabConfiguration(
                 build_power_histogram_figure,
-                (quarters_mean_df, total_datalog_df),
+                (total_datalog_df,quarters_mean_df),
                 "Histogram Power",
                 self.system_notebook,
             ),
@@ -479,9 +488,21 @@ class PageGraph(tk.Frame):
                 self.solar_notebook
             ),
             TabConfiguration(
+                build_solar_pv_voltage_figure,
+                (total_datalog_df,),
+                "PV voltage",
+                self.solar_notebook
+            ),
+            TabConfiguration(
                 build_genset_time_figure,
                 (total_datalog_df,),
                 "Genset Time",
+                self.ac_notebook,
+            ),
+            TabConfiguration(
+                build_genset_time_figure,
+                (total_datalog_df,),
+                "AC-source voltage",
                 self.ac_notebook,
             ),
             TabConfiguration(
@@ -491,15 +512,22 @@ class PageGraph(tk.Frame):
                 self.battery_notebook,
             ),
             TabConfiguration(
-                build_montly_energies_figure,
+                build_monthly_energies_figure,
                 (total_datalog_df,),
                 "Montly Energies",
                 self.system_notebook,
             ),
             TabConfiguration(
-                build_montly_energies_figure2,
+                build_monthly_energies_figure2,
                 (total_datalog_df,),
                 "Monthly Energies2",
+                self.system_notebook,
+            ),
+                    
+            TabConfiguration(
+                build_daily_energies_figure,
+                (total_datalog_df,),
+                "Daily Energies",
                 self.system_notebook,
             ),
         )
@@ -555,7 +583,7 @@ class PageLoadData(tk.Frame):
     def __init__(self, parent, controller):
         self.controller = controller
         super().__init__(parent)
-        label = tk.Label(self, text="Load Data!!!", font=LARGE_FONT)
+        label = tk.Label(self, text="Load Data: select the first .csv file", font=LARGE_FONT)
         label.pack(pady=10, padx=10)
 
         button1 = ttk.Button(self, text="Select CSV file", command=self.load_data_from_filepath)
