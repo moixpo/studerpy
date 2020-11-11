@@ -10,9 +10,13 @@ Feel free to contribute to get results faster... ;-)   This code is published un
 We are specialist of offgrid energy systems and we commission Studer-Innotec Products:
 
 -Inverter-chargers: Xtender XTH, XTM and XTS
+
 -MPPT Solar chargers: VT and VS
+
 -Accessories: Battery supervision, remote monitoring
+
 -...
+
 -More informations on www.studer-innotec.com
 
 
