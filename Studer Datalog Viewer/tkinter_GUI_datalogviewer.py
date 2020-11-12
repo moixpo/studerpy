@@ -5,9 +5,6 @@ Created on Mon Aug 10 23:01:42 2020
 @author: moix_
 @modified by: brycepg
 
-Ressources and examples:
-    -https://pythonprogramming.net/passing-functions-parameters-tkinter-using-lambda/?completed=/object-oriented-programming-crash-course-tkinter/
-    -
 
 """
 
@@ -45,12 +42,15 @@ import xt_all_csv_pandas_import
 from xt_graph_plotter_pandas import (
     build_total_battery_voltages_currents_figure,
     build_battery_voltage_histogram_figure,
+    build_battery_chargedischarge_histogram_figure,
+    build_mean_battery_voltage_figure,
     build_ac_power_figure,
     build_sys_power_figure,
     build_power_histogram_figure,
     build_voltage_versus_current_figure,
     build_solar_production_figure,
     build_solar_pv_voltage_figure,
+    build_solar_energy_prod_figure,
     build_genset_time_figure,
     build_all_battery_voltages_figure,
     build_monthly_energies_figure,
@@ -218,7 +218,7 @@ class DatalogVisuApp(tk.Tk):
 
         tk.Tk.wm_title(self, "Datalog Graph Viewer")
 
-        self.geometry("1000x650")
+        self.geometry("1000x690")
 
         container = tk.Frame(self)
         container.pack(side="top", fill="both", expand=True)
@@ -439,8 +439,14 @@ class PageGraph(tk.Frame):
 
         total_datalog_df = pd.read_pickle(xt_all_csv_pandas_import.MIN_DATAFRAME_NAME)
         quarters_mean_df = pd.read_pickle(xt_all_csv_pandas_import.QUARTERS_DATAFRAME_NAME)
+        day_mean_df=pd.read_pickle(xt_all_csv_pandas_import.DAY_DATAFRAME_NAME)
         month_mean_df = pd.read_pickle(xt_all_csv_pandas_import.MONTH_DATAFRAME_NAME)
         # year_mean_df = pd.read_pickle(xt_all_csv_pandas_import.YEAR_DATAFRAME_NAME)
+        
+        day_kwh_df = total_datalog_df.resample("1d").sum() / 60
+        month_kwh_df = total_datalog_df.resample("1M").sum() / 60
+        year_kWh_df = total_datalog_df.resample("1Y").sum() / 60
+
 
         # This data structure loads each figure and supplies the the tab title in one
         # tab_configuration_seq is a tuple of TabConfiguration instances:
@@ -455,6 +461,24 @@ class PageGraph(tk.Frame):
                 build_battery_voltage_histogram_figure,
                 (total_datalog_df, quarters_mean_df),
                 "Histogram Voltage",
+                self.battery_notebook,
+            ),                    
+            TabConfiguration(
+                build_mean_battery_voltage_figure,
+                (month_mean_df,day_mean_df),
+                "Voltage means",
+                self.battery_notebook,
+            ),
+            TabConfiguration(
+                build_voltage_versus_current_figure,
+                (total_datalog_df,),
+                "Volt vs Current",
+                self.battery_notebook
+            ),
+            TabConfiguration(
+                build_battery_chargedischarge_histogram_figure,
+                (total_datalog_df, quarters_mean_df),
+                "Histogram Dicharge/Charge",
                 self.battery_notebook,
             ),
             TabConfiguration(
@@ -476,15 +500,15 @@ class PageGraph(tk.Frame):
                 self.system_notebook,
             ),
             TabConfiguration(
-                build_voltage_versus_current_figure,
-                (total_datalog_df,),
-                "Volt vs Current",
-                self.battery_notebook
-            ),
-            TabConfiguration(
                 build_solar_production_figure,
                 (total_datalog_df,),
-                "Solar Production",
+                "Solar power production",
+                self.solar_notebook
+            ),
+            TabConfiguration(
+                build_solar_energy_prod_figure,
+                (total_datalog_df,),
+                "Solar energy production",
                 self.solar_notebook
             ),
             TabConfiguration(
@@ -492,12 +516,12 @@ class PageGraph(tk.Frame):
                 (total_datalog_df,),
                 "PV voltage",
                 self.solar_notebook
-            ),
+            ),        
             TabConfiguration(
                 build_genset_time_figure,
                 (total_datalog_df,),
-                "Genset Time",
-                self.ac_notebook,
+                "Operation",
+                self.system_notebook,
             ),
             TabConfiguration(
                 build_genset_time_figure,
@@ -513,20 +537,20 @@ class PageGraph(tk.Frame):
             ),
             TabConfiguration(
                 build_monthly_energies_figure,
-                (total_datalog_df,),
+                (month_kwh_df,),
                 "Montly Energies",
                 self.system_notebook,
             ),
             TabConfiguration(
                 build_monthly_energies_figure2,
-                (total_datalog_df,),
+                (month_kwh_df,),
                 "Monthly Energies2",
                 self.system_notebook,
             ),
                     
             TabConfiguration(
                 build_daily_energies_figure,
-                (total_datalog_df,),
+                (day_kwh_df,),
                 "Daily Energies",
                 self.system_notebook,
             ),
@@ -555,11 +579,21 @@ class PageGraph(tk.Frame):
         self.attach_figure_to_tab(figure, tab)
         self.tabs.append(tab)
 
+
     def attach_figure_to_tab(self, figure, tab):
         """Attach a matplotlib figure to a tkinter tab"""
         canvas = FigureCanvasTkAgg(figure, tab)
-        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-        NavigationToolbar2Tk(canvas, tab)
+        #canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+        #NavigationToolbar2Tk(canvas, tab)
+        
+        #TODO: fix problem with toolbar hiden with figure size
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+
+        toolbar = NavigationToolbar2Tk(canvas, tab)
+        toolbar.update()
+        #toolbarFrame = tk.Frame(master=window)
+        #toolbarFrame.grid(row=2,column=0)
+        #toolbar = NavigationToolbar2Tk(canvas, toolbarFrame)
 
 
 class TextWidgetIOWriter:

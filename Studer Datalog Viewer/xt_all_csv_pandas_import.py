@@ -353,7 +353,7 @@ def run(file_path):
     channels_labels = list(total_datalog_df.columns)
 
     # scan for channels with Ubat in the name:
-    matching2 = [i for i, elem in enumerate(channels_labels) if "XT-Ubat" in elem]
+    matching2 = [i for i, elem in enumerate(channels_labels) if "Ubat" in elem]
 
     # REPLACE 0 values with previous value
     for chan in matching2:
