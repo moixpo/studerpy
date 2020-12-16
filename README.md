@@ -4,7 +4,7 @@ Open source lib of usefull python code for Studer-Innotec Product: read datalogs
 
 This is an ongoing project at a preliminary stage. Goal is to have usefull tools for the analysis and control of solar energy systems.
 
-Feel free to contribute to get results faster... ;-)   This code is published under License GPL-3.0-only ou GPL-3.0-or-later
+Feel free to contribute to get results faster... ;-)   This code is published under MIT License
 
 
 We are specialist of offgrid energy systems and we commission Studer-Innotec Products:
