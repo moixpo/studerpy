@@ -4,8 +4,6 @@
 #  Moix P-O
 #  WWW.OFFGRID.CH    Albedo-Engineering ALBEDO.CH
 #
-#  License GPL-3.0-only ou GPL-3.0-or-later
-
   
 ######################
 # DESCRIPTION
