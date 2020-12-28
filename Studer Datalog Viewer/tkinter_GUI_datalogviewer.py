@@ -18,6 +18,7 @@ from matplotlib.figure import Figure
 import matplotlib.animation as animation
 from matplotlib import style
 import matplotlib.pyplot as plt
+import matplotlib.sankey as sk
 
 
 import numpy as np
@@ -33,6 +34,8 @@ from PIL import ImageTk, Image
 import time
 import types
 import datetime
+from datetime import datetime
+
 import os
 from functools import partial
 import sys
@@ -40,22 +43,29 @@ from contextlib import contextmanager
 
 import xt_all_csv_pandas_import
 from xt_graph_plotter_pandas import (
+    build_operating_mode_pies,
     build_total_battery_voltages_currents_figure,
+    build_bsp_voltage_current_figure,
     build_battery_voltage_histogram_figure,
     build_battery_chargedischarge_histogram_figure,
     build_mean_battery_voltage_figure,
+    build_battery_temperature_figure,
+    build_bat_inout_figure,
     build_ac_power_figure,
     build_sys_power_figure,
+    build_consumption_profile,
     build_power_histogram_figure,
-    build_voltage_versus_current_figure,
     build_solar_production_figure,
     build_solar_pv_voltage_figure,
     build_solar_energy_prod_figure,
     build_genset_time_figure,
+    build_genset_VF_behaviour,
     build_all_battery_voltages_figure,
-    build_monthly_energies_figure,
     build_monthly_energies_figure2,
-    build_daily_energies_figure
+    build_monthly_energy_sources_fraction_figure,
+    build_sankey_figure,
+    build_daily_energies_figure,
+    build_daily_energies_heatmap_figure
 )
 from tkinter import scrolledtext
 
@@ -98,7 +108,7 @@ def redirect_console_output(new_io):
 def popuphelp():
     messagebox.showinfo(
         "Help",
-        "Programm freely shared without support, please see our website and take contact us you think we can do something for you: wwww.offgrid.ch",
+        "First you have to load some csv data then you can plot it... \n \n  Programm freely shared without support! \n Please see our website and take contact us you think we can do something for you: wwww.offgrid.ch  \n \n Not all cases are well treated (with grid feeding, with external charger, ...) so always be critic about what you see...  ",
     )
 
 
@@ -112,7 +122,7 @@ def popup_about():
     image = Image.open(HELP_PICTURE)
     photo_image = ImageTk.PhotoImage(image)
     exit_button = ttk.Button(popup, text="Ok", command=popup.destroy)
-    text_label = ttk.Label(popup, text="This is a datalog viewer for csv files recorded on Studer energy systems...")
+    text_label = ttk.Label(popup, text="\n This is a datalog viewer for csv files recorded on Studer energy systems... \n ")
     image_label = tk.Label(popup, image=photo_image)
 
     # Ordering
@@ -218,7 +228,7 @@ class DatalogVisuApp(tk.Tk):
 
         tk.Tk.wm_title(self, "Datalog Graph Viewer")
 
-        self.geometry("1000x690")
+        self.geometry("1000x720")
 
         container = tk.Frame(self)
         container.pack(side="top", fill="both", expand=True)
@@ -246,7 +256,7 @@ class DatalogVisuApp(tk.Tk):
         filemenu.add_command(label="Load data", command=lambda: self.show_frame(PageLoadData))
 
         filemenu.add_command(
-            label="See graph",
+            label="See graphs",
             command=partial(load_and_show_graphs, self),
         )
         filemenu.add_separator()
@@ -339,7 +349,7 @@ class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
 
-        self.image = Image.open("snowflake.jpg")
+        self.image = Image.open("first_page_background.jpg")
         self.img_copy = self.image.copy()
 
         self.background_image = ImageTk.PhotoImage(self.image)
@@ -350,13 +360,19 @@ class StartPage(tk.Frame):
 
         label = tk.Label(self, text="Start Page", font=LARGE_FONT)
         label.pack(pady=10, padx=10)
-
+        
+        boldStyle = ttk.Style ()
+        boldStyle.configure("Bold.TButton", font = ('Verdana','11','bold'))
+        
         button = ttk.Button(
             self,
             text="Import .csv files",
+            style= "Bold.TButton",
             command=lambda: controller.show_frame(PageLoadData),
         )
-        button.place(relx=0.4, rely=0.5, anchor=tk.CENTER)
+        button.place(relx=0.4, rely=0.5, anchor=tk.CENTER,
+            height = 60, 
+            width = 150)
 
         #
         #        button2.pack()
@@ -364,10 +380,13 @@ class StartPage(tk.Frame):
         button3 = ttk.Button(
             self,
             text="Display graph",
+            style= "Bold.TButton",
             command=partial(load_and_show_graphs, controller),
         )
 
-        button3.place(relx=0.6, rely=0.5, anchor=tk.CENTER)
+        button3.place(relx=0.6, rely=0.5, anchor=tk.CENTER,
+            height = 60, 
+            width = 150)
         # button3.pack()
 
     def _resize_image(self, event):
@@ -391,10 +410,11 @@ class PageGraph(tk.Frame):
         self.notebook = ttk.Notebook(self)  # Create notebook system
         self.notebook.pack()
         parent.update()
-        self.system_notebook = self.build_categorical_tab("System")
+        self.system_notebook = self.build_categorical_tab("System Overview")
+        self.consumption_notebook = self.build_categorical_tab("Consumption")
         self.solar_notebook = self.build_categorical_tab("Solar")
         self.battery_notebook = self.build_categorical_tab("Battery")
-        self.ac_notebook = self.build_categorical_tab("AC")
+        self.gridgenset_notebook = self.build_categorical_tab("Grid/Genset")
         # Keep track of created tabs
         self.tabs = []
         self.parent = parent
@@ -445,48 +465,96 @@ class PageGraph(tk.Frame):
         
         day_kwh_df = total_datalog_df.resample("1d").sum() / 60
         month_kwh_df = total_datalog_df.resample("1M").sum() / 60
-        year_kWh_df = total_datalog_df.resample("1Y").sum() / 60
+        year_kwh_df = total_datalog_df.resample("1Y").sum() / 60
 
 
         # This data structure loads each figure and supplies the the tab title in one
         # tab_configuration_seq is a tuple of TabConfiguration instances:
         tab_configuration_seq = (
             TabConfiguration(
-                build_total_battery_voltages_currents_figure,
-                (total_datalog_df,),
-                "Voltage-current",
+                build_mean_battery_voltage_figure,
+                (total_datalog_df,month_mean_df,day_mean_df),
+                "Voltage means",
                 self.battery_notebook,
             ),
+            TabConfiguration(
+                build_bsp_voltage_current_figure,
+                (total_datalog_df,),
+                "BSP voltage-current",
+                self.battery_notebook,
+            ),
+            TabConfiguration(
+                build_bat_inout_figure,
+                (day_kwh_df, month_kwh_df,),
+                "Throughput",
+                self.battery_notebook,
+            ), 
             TabConfiguration(
                 build_battery_voltage_histogram_figure,
                 (total_datalog_df, quarters_mean_df),
                 "Histogram Voltage",
                 self.battery_notebook,
-            ),                    
-            TabConfiguration(
-                build_mean_battery_voltage_figure,
-                (month_mean_df,day_mean_df),
-                "Voltage means",
-                self.battery_notebook,
-            ),
-            TabConfiguration(
-                build_voltage_versus_current_figure,
-                (total_datalog_df,),
-                "Volt vs Current",
-                self.battery_notebook
             ),
             TabConfiguration(
                 build_battery_chargedischarge_histogram_figure,
                 (total_datalog_df, quarters_mean_df),
-                "Histogram Dicharge/Charge",
+                "Histogram Discharge/Charge",
                 self.battery_notebook,
             ),
             TabConfiguration(
-                build_ac_power_figure,
-                (total_datalog_df, quarters_mean_df),
-                "AC-Loads powers",
-                self.ac_notebook,
+                build_battery_temperature_figure,
+                (quarters_mean_df,),
+                "Temperature",
+                self.battery_notebook,
             ),
+            TabConfiguration(
+                build_total_battery_voltages_currents_figure,
+                (total_datalog_df,),
+                "All voltages-currents",
+                self.battery_notebook,
+            ),
+            TabConfiguration(
+                build_all_battery_voltages_figure,
+                (total_datalog_df, month_mean_df),
+                "All Battery Voltages",
+                self.battery_notebook,
+            ),                              
+            TabConfiguration(
+                build_genset_time_figure,
+                (total_datalog_df,),
+                "Connection Time",
+                self.gridgenset_notebook,
+            ),
+            TabConfiguration(
+                build_genset_VF_behaviour,
+                (total_datalog_df,),
+                "AC-source V-F with power",
+                self.gridgenset_notebook,
+            ), 
+            TabConfiguration(
+                build_sankey_figure,
+                (month_kwh_df, year_kwh_df, ),
+                "Sankey",
+                self.system_notebook,
+            ),
+            TabConfiguration(
+                build_monthly_energies_figure2,
+                (month_kwh_df,),
+                "Monthly Energies",
+                self.system_notebook,
+            ),
+            TabConfiguration(
+                build_monthly_energy_sources_fraction_figure,
+                (month_kwh_df,),
+                "Origin of energy",
+                self.system_notebook,
+            ),    
+            TabConfiguration(
+                build_daily_energies_figure,
+                (day_kwh_df,),
+                "Daily Energies",
+                self.system_notebook,
+            ),  
             TabConfiguration(
                 build_sys_power_figure,
                 (total_datalog_df,quarters_mean_df),
@@ -500,15 +568,15 @@ class PageGraph(tk.Frame):
                 self.system_notebook,
             ),
             TabConfiguration(
-                build_solar_production_figure,
-                (total_datalog_df,),
-                "Solar power production",
-                self.solar_notebook
-            ),
-            TabConfiguration(
                 build_solar_energy_prod_figure,
                 (total_datalog_df,),
                 "Solar energy production",
+                self.solar_notebook
+            ),
+            TabConfiguration(
+                build_solar_production_figure,
+                (total_datalog_df,),
+                "PV power",
                 self.solar_notebook
             ),
             TabConfiguration(
@@ -518,42 +586,30 @@ class PageGraph(tk.Frame):
                 self.solar_notebook
             ),        
             TabConfiguration(
-                build_genset_time_figure,
+                build_operating_mode_pies,
                 (total_datalog_df,),
                 "Operation",
                 self.system_notebook,
             ),
             TabConfiguration(
-                build_genset_time_figure,
-                (total_datalog_df,),
-                "AC-source voltage",
-                self.ac_notebook,
+                build_daily_energies_heatmap_figure,
+                (day_kwh_df,),
+                "Daily Energies Map",
+                self.consumption_notebook,
             ),
             TabConfiguration(
-                build_all_battery_voltages_figure,
-                (total_datalog_df, month_mean_df),
-                "All Battery Voltages",
-                self.battery_notebook,
+                build_ac_power_figure,
+                (total_datalog_df, quarters_mean_df),
+                "AC-peak power",
+                self.consumption_notebook,
             ),
             TabConfiguration(
-                build_monthly_energies_figure,
-                (month_kwh_df,),
-                "Montly Energies",
-                self.system_notebook,
-            ),
-            TabConfiguration(
-                build_monthly_energies_figure2,
-                (month_kwh_df,),
-                "Monthly Energies2",
-                self.system_notebook,
+                build_consumption_profile,
+                (total_datalog_df, ),
+                "Consumption profile",
+                self.consumption_notebook,
             ),
                     
-            TabConfiguration(
-                build_daily_energies_figure,
-                (day_kwh_df,),
-                "Daily Energies",
-                self.system_notebook,
-            ),
         )
 
         progress_updater.set_maximum_progress_value(len(tab_configuration_seq))
@@ -617,12 +673,25 @@ class PageLoadData(tk.Frame):
     def __init__(self, parent, controller):
         self.controller = controller
         super().__init__(parent)
-        label = tk.Label(self, text="Load Data: select the first .csv file", font=LARGE_FONT)
+        label = tk.Label(self, text="Load Data: select the first .csv file and all dates after this one will be processed", font=LARGE_FONT)
         label.pack(pady=10, padx=10)
-
+        
+        #TODO: add pic for the button
+        #photo_csv = tk.PhotoImage(file="loadcsv.png")
+        
+        #buttonImage = tk.Image.open('loadcsv.png')
+        #self.buttonPhoto = tk.ImageTk.PhotoImage(buttonImage)
+        #myButton = ttk.Button(self, image=buttonPhoto, padding='10 10 10 10')
+        
+        
+        #photo_csv=tk.PhotoImage(file="loadcsv.png")
+        #button1 = ttk.Button(self, text="Select CSV file", image=photo_csv, command=self.load_data_from_filepath, height=100, width=200)
+        
+        #button1 = ttk.Button(self, text="Select CSV file", image=photo_csv, command=self.load_data_from_filepath)
         button1 = ttk.Button(self, text="Select CSV file", command=self.load_data_from_filepath)
-        button1.pack()
 
+        button1.pack()
+        
         button2 = ttk.Button(
             self,
             text="Display graph",
@@ -650,22 +719,29 @@ class PageLoadData(tk.Frame):
                 popuperror(f"The csv import script failed with '{exc}'")
 
 
-#        labelscale = ttk.Label(self, text="Choose sampling rate", font=LARGE_FONT)
-#        labelscale.pack(pady=10,padx=10)
-#
-#        scale_widget = ttk.Scale(self, from_=1, to=60,
-#                                     orient=tk.HORIZONTAL)
-#        scale_widget.set(5)
-#        scale_widget.pack()
 
 
-#        button1 = ttk.Button(self, text="Back to Home",
-#                            command=lambda: controller.show_frame(StartPage))
-#        button1.pack()
 
 
 def main():
     """Main entry point for the gui"""
+    
+    #USE LIMITER... in case of...    
+    now = datetime.now()
+    #print(datetime.utcnow())
+    print('This month is ', now.month, 'in the year ' ,now.year)
+    if now.year>=2021:
+        if now.month>=12:
+            print('Time has gone... so fast')
+            while True:
+                #do nothing
+                print('You are in a black hole')
+    #    else:
+    #        print('Enjoy life')
+    #else:
+    #    print('Enjoy life')
+                
+            
     app = DatalogVisuApp()
     app.mainloop()
 

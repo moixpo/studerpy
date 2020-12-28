@@ -4,8 +4,9 @@ block_cipher = None
 
 # Data included in the output binary
 datas = [
-    ("snowflake.jpg", "."),
-    ("icone_albedo.ico", ".")
+    ("first_page_background.jpg", "."),
+    ("icone_albedo.ico", "."),
+	("offgrid.jpg", ".")
 ]
 
 def add_optional_dataframes():

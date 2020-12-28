@@ -12,7 +12,6 @@
 #
 #   Function to import Studer-Innotec datalog .csv file.
 #
-#   xt_log_day_importer(filename, user_delimiter=',')
 #
 
 #######
@@ -26,8 +25,11 @@
 
 #######
 # OUTPUTS:
-#The returned DAY_DATALOG is a structure/dictionnary with the following fields
+#The returned daylog_df is a panda timeserie dataframe
 #
+
+
+#it is different than the old matlab version given below, somme infos will be added in the future TODO ...
 #   day_datalog =
 #            'channels_label': 1xn list             name of the n channels logged
 #              'day_of_month': 6                    day of the month
@@ -44,12 +46,7 @@
 #%timeit
 
 
-#import scipy
-#from scipy import *
-#from scipy.optimize import differential_evolution
-
-#import matplotlib.pyplot as plt
-import numpy as np
+#import numpy as np
 import pandas as pd
 #import csv
 #import time
