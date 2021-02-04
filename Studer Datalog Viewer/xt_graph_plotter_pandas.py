@@ -17,11 +17,14 @@ import matplotlib.sankey as sk
 
 import pandas as pd
 import numpy as np
+import datetime as dt
 
 from PIL import Image
 
 import xt_all_csv_pandas_import
 
+from scipy.interpolate import UnivariateSpline
+from matplotlib.widgets import Slider
 
 #colorset
 PINK_COLOR='#FFB2C7'
@@ -63,7 +66,7 @@ FIGSIZE_WIDTH=14
 FIGSIZE_HEIGHT=6
 #figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT)
 
-WATERMARK_PICTURE='logo.png'
+WATERMARK_PICTURE='media/logo.png'
 
 #addition of a watermark on the figure
 im = Image.open(WATERMARK_PICTURE)   
@@ -93,27 +96,24 @@ def build_sys_power_figure(total_datalog_df, quarters_mean_df):
     
     #create object figure
     #fig_pow, axes_pow = plt.subplots(nrows=1, ncols=1)
-    fig_pow, axes_pow = plt.subplots()
-    fig_pow.set_facecolor(FIGURE_FACECOLOR)
+    fig_pow, axes_pow = plt.subplots(nrows=1, ncols=1, figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
+    #fig_pow.set_facecolor(FIGURE_FACECOLOR)
     
     #total_datalog_df.plot(y=total_datalog_df.columns[channels_number_Pactif],
     #                      figsize=(12,6),
     #                      ax=axes_pow[0])
     
     total_datalog_df.plot(y=chanel_label_Psolar_tot,
-                          figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT),
                           ax=axes_pow,
                           color=SOLAR_COLOR,
                           legend="Solar")
     
     total_datalog_df.plot(y=chanel_label_Pin_actif_tot,
-                          figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT),
                           ax=axes_pow,
                           color=GENSET_COLOR,
                           legend="Grid/Genset")
     
     total_datalog_df.plot(y=chanel_label_Pout_actif_tot,
-                          figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT),
                           ax=axes_pow,
                           color=LOAD_COLOR,
                           legend="Loads")
@@ -141,7 +141,8 @@ def build_operating_mode_pies(total_datalog_df):
 
     all_channels_labels = list(total_datalog_df.columns)
     
-    channel_number = [i for i, elem in enumerate(all_channels_labels) if 'XT-Mode [] I3028 L1' in elem]  
+    #'XT-Mode [] I3028 L1'
+    channel_number = [i for i, elem in enumerate(all_channels_labels) if 'I3028' in elem]  
     if channel_number:    
         channel_label=all_channels_labels[channel_number[0]]
     
@@ -160,8 +161,8 @@ def build_operating_mode_pies(total_datalog_df):
         ax_mode[0].set_title("Operating mode Inverter")
     
     
-    
-    channel_number = [i for i, elem in enumerate(all_channels_labels) if 'VT-Mode [] I11016 1' in elem]
+    #VT-Mode [] I11016 1
+    channel_number = [i for i, elem in enumerate(all_channels_labels) if 'I11016' in elem]
     if channel_number:   
         channel_label=all_channels_labels[channel_number[0]]
         
@@ -179,7 +180,7 @@ def build_operating_mode_pies(total_datalog_df):
         ax_mode[1].set_title("Operating mode VT")
     
     #'VS-Mod1 [] I15014 1'
-    channel_number = [i for i, elem in enumerate(all_channels_labels) if 'VS-Mod' in elem]
+    channel_number = [i for i, elem in enumerate(all_channels_labels) if ('I15013'in elem) or ('I15014'in elem) or ('I15015' in elem)]
     if channel_number:   
         channel_label=all_channels_labels[channel_number[0]]
         
@@ -195,7 +196,8 @@ def build_operating_mode_pies(total_datalog_df):
                wedgeprops=dict(width=0.2)
                )
         ax_mode[1].set_title("Operating mode VS")
-        
+    
+    #TODO: Adapt the labels    
 
     fig_mode.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_mode.savefig("FigureExport/operating_modes.png")
@@ -203,21 +205,25 @@ def build_operating_mode_pies(total_datalog_df):
     return fig_mode
 
 
-def build_consumption_profile(total_datalog_df):
+def build_consumption_profile(total_datalog_df, start_date = dt.date(2000, 6, 20), end_date = dt.date(2050, 6, 20)):
+    
+    start_date = dt.date(2020, 9, 17)
+    end_date = dt.date(2020, 9, 29)
+    
+    temp1 = total_datalog_df[total_datalog_df.index.date >= start_date]
+    temp2 = temp1[temp1.index.date <= end_date]
+
 
     all_channels_labels = list(total_datalog_df.columns)
-
     channel_number = [i for i, elem in enumerate(all_channels_labels) if 'Pout Consumption power (ALL)' in elem]
    
     #channel_number=channel_number_Pout_conso_Tot
+    time_of_day_in_hours=list(temp2.index.hour+temp2.index.minute/60)
+    time_of_day_in_minutes=list(temp2.index.hour*60+temp2.index.minute)
     
-    time_of_day_in_hours=list(total_datalog_df.index.hour+total_datalog_df.index.minute/60)
-    time_of_day_in_minutes=list(total_datalog_df.index.hour*60+total_datalog_df.index.minute)
-    
-    #add a channels to the dataframe with minutes of the day to be able to sort data on it:
-    
-    #Create a new entry:
-    total_datalog_df['Time of day in minutes']=time_of_day_in_minutes
+    #add a channels to the dataframe with minutes of the day to be able to sort data on it: 
+    #Create a new entry in the dataframe:
+    temp2['Time of day in minutes']=time_of_day_in_minutes
         
         
     fig_pow_by_min_of_day, axes_pow_by_min_of_day = plt.subplots(nrows=1, ncols=1, figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
@@ -229,7 +235,7 @@ def build_consumption_profile(total_datalog_df):
         channel_label=all_channels_labels[channel_number[0]]
         
         axes_pow_by_min_of_day.plot(time_of_day_in_hours,
-                          total_datalog_df[channel_label].values, 
+                          temp2[channel_label].values, 
                           marker='+',
                           alpha=0.25,
                           color='b',
@@ -241,12 +247,12 @@ def build_consumption_profile(total_datalog_df):
         mean_by_minute=np.zeros(1440)
         x1=np.array(range(0,1440))
         for k in x1:
-            tem_min_pow1=total_datalog_df[total_datalog_df['Time of day in minutes'].values == k]
+            tem_min_pow1=temp2[temp2['Time of day in minutes'].values == k]
             mean_by_minute[k]=np.nanmean(tem_min_pow1[channel_label].values)
             
     
         axes_pow_by_min_of_day.plot(x1/60, mean_by_minute,
-                          color='g',
+                          color='m',
                           linestyle ='-',
                           linewidth=2)
     
@@ -254,7 +260,7 @@ def build_consumption_profile(total_datalog_df):
         mean_by_hour=np.zeros(24)
         x2=np.array(range(0,24))
         for k in x2:
-            tem_min_pow2=total_datalog_df[total_datalog_df.index.hour == k]
+            tem_min_pow2=temp2[temp2.index.hour == k]
             mean_by_hour[k]=np.nanmean(tem_min_pow2[channel_label].values)
             
     
@@ -320,7 +326,7 @@ def build_power_histogram_figure(total_datalog_df, quarters_mean_df):
     values_for_Pin_hist.hist( bins=50, alpha=0.5, label="Pin", density=True)
     plt.axvline(quarters_mean_df[quarters_channels_labels[channel_number]].mean(), color='k', linestyle='dashed', linewidth=2)
 
-    axes_hist.set_title("Histogram of Powers (without 0 kW for Pin)", fontsize=12, weight="bold")
+    axes_hist.set_title("Histogram of Powers (>0 kW for Pin)", fontsize=12, weight="bold")
     axes_hist.set_xlabel("Power [kW]", fontsize=12)
     axes_hist.set_ylabel("Frequency density", fontsize=12)
     axes_hist.legend(loc='upper right')
@@ -332,9 +338,6 @@ def build_power_histogram_figure(total_datalog_df, quarters_mean_df):
     fig_hist.savefig("FigureExport/histogramm_power_figure.png")
 
     return fig_hist
-
-
-
 
 
 def build_bsp_voltage_current_figure(total_datalog_df):
@@ -366,6 +369,78 @@ def build_bsp_voltage_current_figure(total_datalog_df):
     fig_bsp_mes.savefig("FigureExport/bsp_mes_figure.png")
 
     return fig_bsp_mes
+
+
+def build_interactive_figure(total_datalog_df):
+    # Initial x and y arrays
+    x = np.linspace(0, 10, 30)
+    y = np.sin(0.5*x)*np.sin(x*np.random.randn(30))
+    
+    # Spline interpolation
+    spline = UnivariateSpline(x, y, s = 6)
+    x_spline = np.linspace(0, 10, 1000)
+    y_spline = spline(x_spline)
+    
+    # Plotting
+    fig = plt.figure()
+    plt.subplots_adjust(bottom=0.25)
+    ax = fig.subplots()
+    p = ax.plot(x,y)
+    p, = ax.plot(x_spline, y_spline, 'g')
+    ax.set_title("Test of an interactive figure", fontsize=12, weight="bold")
+
+    # Defining the Slider button
+    # xposition, yposition, width and height
+    ax_slide = plt.axes([0.25, 0.1, 0.65, 0.03])
+    
+    # Properties of the slider
+    s_factor = Slider(ax_slide, 'Smoothing factor',
+                      0.1, 6, valinit=6, valstep=0.2)
+    
+    # Updating the plot
+    def update(val):
+        current_v = s_factor.val
+        spline = UnivariateSpline(x, y, s = current_v)
+        p.set_ydata(spline(x_spline))
+        #redrawing the figure
+        fig.canvas.draw()
+        
+    # Calling the function "update" when the value of the slider is changed
+    s_factor.on_changed(update)
+    return fig
+
+
+def build_bsp_soc_current_figure(total_datalog_df):
+    all_channels_labels = list(total_datalog_df.columns)
+    #channel_number_ubat_ref=[i for i, elem in enumerate(all_channels_labels) if 'System Ubat ref [Vdc]' in elem]
+
+    #channel_number_ubatbsp = [i for i, elem in enumerate(all_channels_labels) if 'BSP-Ubat' in elem]
+    channels_number_ibatbsp = [i for i, elem in enumerate(all_channels_labels) if 'BSP-Ibat' in elem]
+    channels_number_SOC_bat = [i for i, elem in enumerate(all_channels_labels) if ('BSP-SOC' in elem) or ('I7032' in elem)]  
+
+
+   
+   
+    ################################
+    #bsp battery SOC and current on the same graph:
+    fig_bsp_soc, ax1_bsp_soc = plt.subplots(figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
+    ax2_bsp_soc = ax1_bsp_soc.twinx()
+    y1=total_datalog_df[total_datalog_df.columns[channels_number_SOC_bat]]
+    y2=total_datalog_df[total_datalog_df.columns[channels_number_ibatbsp]]
+    xtime=total_datalog_df.index
+    ax1_bsp_soc.plot(xtime, y1, 'g-')
+    ax2_bsp_soc.plot(xtime, y2, 'r-')
+    
+    ax1_bsp_soc.set_ylabel('SOC [%]', fontsize=12, color='g')
+    ax2_bsp_soc.set_ylabel('Amperes [A]', fontsize=12, color='r')
+    ax1_bsp_soc.set_title("Battery SOC and current (only with BSP or BMS)", fontsize=12, weight="bold")
+    
+    ax1_bsp_soc.grid(True)
+
+    fig_bsp_soc.figimage(im, 10, 10, zorder=3, alpha=.2)
+    fig_bsp_soc.savefig("FigureExport/bsp_mes_figure.png")
+
+    return fig_bsp_soc
 
 
     
@@ -506,11 +581,12 @@ def build_battery_chargedischarge_histogram_figure(total_datalog_df, quarters_me
         
         
         # scatter points on the main axes
-        main_ax.plot(x, y, 'o', markersize=3, alpha=0.2)
-        main_ax.plot(x2, y2, 'o', markersize=3, alpha=0.2)
-        plt.axvline(x.mean(), color='k', linestyle='dashed', linewidth=2)
+        main_ax.plot(x, y, 'o', markersize=3, alpha=0.2, color='b')
+        main_ax.plot(x2, y2, 'o', markersize=3, alpha=0.2, color='r')
+        plt.axvline(x.mean(), color='b', linestyle='dashed', linewidth=2, alpha=0.5)
+        plt.axvline(x2.mean(), color='r', linestyle='dashed', linewidth=2, alpha=0.5)
         text_to_disp='Mean volt in discharge= ' + str(round(x.mean(), 2)) + ' Vdc'
-        main_ax.text(x.mean()+0.2, y.mean(), text_to_disp, horizontalalignment='left',verticalalignment='bottom')
+        #main_ax.text(x.mean()+0.2, y.mean(), text_to_disp, horizontalalignment='left',verticalalignment='bottom')
         
         main_ax.grid(True) 
         
@@ -522,18 +598,22 @@ def build_battery_chargedischarge_histogram_figure(total_datalog_df, quarters_me
                     orientation='vertical',
                     alpha=0.5, 
                     label='Discharge', 
+                    color='b',
                     density=0)
         
-        plt.axvline(x.mean(), color='k', linestyle='dashed', linewidth=2)
+        plt.axvline(x.mean(), color='b', linestyle='dashed', linewidth=2, alpha=0.5)
+        plt.axvline(x2.mean(), color='r', linestyle='dashed', linewidth=2, alpha=0.5)
         text_to_disp='Mean volt in discharge= ' + str(round(x.mean(), 2)) + ' Vdc'
         #x_hist.text(x.mean()+0.2, 0.0, text_to_disp, horizontalalignment='left',verticalalignment='bottom')
-        
+        x_hist.text(x.mean()+0.1, 1, text_to_disp, horizontalalignment='left',verticalalignment='bottom', color='b')
+
         
         x_hist.hist(x2, bins=50,
                     histtype='stepfilled',
                     orientation='vertical',
                     alpha=0.5, 
                     label='Charge', 
+                    color='r',
                     density=0)
         
         
@@ -556,30 +636,24 @@ def build_battery_chargedischarge_histogram_figure(total_datalog_df, quarters_me
     return fig_scat2hist
 
 
-
 def build_ac_power_figure(total_datalog_df, quarters_mean_df):
     all_channels_labels = list(total_datalog_df.columns)
-    channels_number_Papparent = [i for i, elem in enumerate(all_channels_labels) if ("I3098" in elem)  ]
-    channels_number_PapparentMax=[i for i, elem in enumerate(all_channels_labels) if ("I3097" in elem)  ]
+    channels_number_Pactif = [i for i, elem in enumerate(all_channels_labels) if ("I3101" in elem)  ]
+    #channels_number_PapparentMax=[i for i, elem in enumerate(all_channels_labels) if ("I3097" in elem)  ]
     fig_pow, axes_pow = plt.subplots(nrows=1, ncols=1, figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
 
    
-    if channels_number_Papparent:
+    if channels_number_Pactif:
     
         total_datalog_df.plot(
-            y=total_datalog_df.columns[channels_number_PapparentMax],
-            marker="+",
+            y=total_datalog_df.columns[channels_number_Pactif],
             ax=axes_pow,
         )
-        total_datalog_df.plot(
-            y=total_datalog_df.columns[channels_number_Papparent],
-            marker="+",
-            ax=axes_pow,
-        )
+        
         #quarters_mean_df.plot( y=quarters_mean_df.columns[channels_number_Papparent], marker="o", ax=axes_pow  )
         
-        axes_pow.set_ylabel("Apparent power S [kVA]", fontsize=12)
-        axes_pow.set_title("1min and peak AC-apparent power S", fontsize=12, weight="bold")
+        axes_pow.set_ylabel("Load power [kW]", fontsize=12)
+        axes_pow.set_title("All AC-OUT powers", fontsize=12, weight="bold")
         axes_pow.grid(True)
     else:
         axes_pow.set_title("No inverter in the system", fontsize=12, weight="bold")
@@ -612,6 +686,41 @@ def build_ac_power_figure(total_datalog_df, quarters_mean_df):
     #        axes_pow[1].grid(True)
     #    else:
     #        axes_pow[1].set_title("No inverter in the system", fontsize=12, weight="bold")
+
+    fig_pow.figimage(im, 10, 10, zorder=3, alpha=.2)
+    fig_pow.savefig("FigureExport/apparent_power_figure.png")
+
+    return fig_pow
+
+
+
+def build_ac_apparentpower_figure(total_datalog_df, quarters_mean_df):
+    all_channels_labels = list(total_datalog_df.columns)
+    channels_number_Papparent = [i for i, elem in enumerate(all_channels_labels) if ("I3098" in elem)  ]
+    channels_number_PapparentMax=[i for i, elem in enumerate(all_channels_labels) if ("I3097" in elem)  ]
+    fig_pow, axes_pow = plt.subplots(nrows=1, ncols=1, figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
+
+   
+    if channels_number_Papparent:
+    
+        total_datalog_df.plot(
+            y=total_datalog_df.columns[channels_number_PapparentMax],
+            marker="+",
+            ax=axes_pow,
+        )
+        total_datalog_df.plot(
+            y=total_datalog_df.columns[channels_number_Papparent],
+            marker="+",
+            ax=axes_pow,
+        )
+        #quarters_mean_df.plot( y=quarters_mean_df.columns[channels_number_Papparent], marker="o", ax=axes_pow  )
+        
+        axes_pow.set_ylabel("Apparent power S [kVA]", fontsize=12)
+        axes_pow.set_title("1min and peak AC-apparent power S", fontsize=12, weight="bold")
+        axes_pow.grid(True)
+    else:
+        axes_pow.set_title("No inverter in the system", fontsize=12, weight="bold")
+        
 
     fig_pow.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_pow.savefig("FigureExport/apparent_power_figure.png")
@@ -672,14 +781,22 @@ def build_solar_production_figure(total_datalog_df):
     chanel_number_for_solar = [
         i for i, elem in enumerate(all_channels_labels) if "Solar power (ALL) [kW]" in elem
     ]
-
+    
+    #VS: I15061	I15062	I15063
+    #VT: I11043
+    chanel_number_for_individual_trackers = [
+    i for i, elem in enumerate(all_channels_labels) if ("I15061" in elem)
+        or ("I15062" in elem)
+        or ("I15063" in elem)
+        or ("I11043" in elem)
+    ]
+       
     fig_solar, axes_solar = plt.subplots(nrows=1, ncols=1, figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
 
     total_datalog_df.plot(
-        y=total_datalog_df.columns[chanel_number_for_solar],
+        y=total_datalog_df.columns[chanel_number_for_solar+chanel_number_for_individual_trackers],
         ax=axes_solar,
-        color=SOLAR_COLOR
-    )
+    ) #color=SOLAR_COLOR
     
     axes_solar.set_ylabel("Power [kW]", fontsize=12)
     axes_solar.set_title("Solar Production", fontsize=12, weight="bold")
@@ -722,12 +839,12 @@ def build_solar_pv_voltage_figure(total_datalog_df):
     return fig_solar_upv
 
 
-def build_solar_energy_prod_figure(total_datalog_df):
+def build_solar_energy_prod_figure(total_datalog_df,day_kwh_df,month_kwh_df):
 
     all_channels_labels = list(total_datalog_df.columns)
     chanel_number_for_solar = [i for i, elem in enumerate(all_channels_labels) if "Solar power (ALL) [kW]" in elem]
-    day_kwh_df = total_datalog_df.resample("1d").sum() / 60
-    month_kwh_df = total_datalog_df.resample("1M").sum() / 60
+    #day_kwh_df = total_datalog_df.resample("1d").sum() / 60
+    #month_kwh_df = total_datalog_df.resample("1M").sum() / 60
     
     
     fig_solar, axes_solar = plt.subplots(nrows=2, ncols=1, figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
@@ -754,7 +871,15 @@ def build_solar_energy_prod_figure(total_datalog_df):
     
     #replace labels with the month name:
     loc, label= plt.xticks()
-    plt.xticks(loc,labels=list(month_kwh_df.index.month_name()), rotation=45, ha = 'right' )
+    #plt.xticks(loc,labels=list(month_kwh_df.index.month_name()), rotation=35, ha = 'right' )
+    labels_month=list(month_kwh_df.index.month_name())
+    labels_year=list(month_kwh_df.index.year)
+    
+    for k,elem in enumerate(labels_month):
+        if elem=='January':
+            labels_month[k]=str(labels_year[k]) + ' January'
+    
+    plt.xticks(loc,labels=labels_month,rotation=35)
 
     fig_solar.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_solar.savefig("FigureExport/solar_daily_monthly_production_figure.png")
@@ -815,6 +940,56 @@ def build_genset_time_figure(total_datalog_df):
     fig_transfer.savefig("FigureExport/genset_use_figure.png")
 
     return fig_transfer
+
+
+def build_genset_runtime(day_kwh_df,month_kwh_df):
+
+    ##############################
+    #RUNTIME OF GENSET
+    ################
+    all_channels_labels = list(day_kwh_df.columns)
+    channel_number_for_transfer = [ i for i, elem in enumerate(all_channels_labels) if "I3020 L1" in elem   ]
+
+    fig_genset_runtime, axes_genset_runtime = plt.subplots(nrows=2, ncols=1,figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
+    
+    
+    
+    day_kwh_df[day_kwh_df.columns[channel_number_for_transfer]].plot(ax=axes_genset_runtime[0],
+              kind='line',
+              marker='o',
+              color=GENSET_COLOR)
+    
+    axes_genset_runtime[0].set_ylabel("Time [hours/day]", fontsize=12)
+    axes_genset_runtime[0].set_title("Connection time to grid/genset per day and per month", fontsize=12, weight="bold")
+    axes_genset_runtime[0].legend(["Day time"])
+    axes_genset_runtime[0].grid(True)
+    
+    
+    
+    month_kwh_df[month_kwh_df.columns[channel_number_for_transfer]].plot.bar(ax=axes_genset_runtime[1],
+                          use_index=True)
+    
+    axes_genset_runtime[1].set_ylabel("Time  [hours/month]", fontsize=12)
+    #axes_solar[1].set_title("PV production per month", fontsize=12, weight="bold")
+    axes_genset_runtime[1].legend(["Month time"])
+    axes_genset_runtime[1].grid(True)
+    
+    #replace labels with the month name:
+    loc, label= plt.xticks()
+    #plt.xticks(loc,labels=list(month_kwh_df.index.month_name()), rotation=30, ha = 'right' )
+    labels_month=list(month_kwh_df.index.month_name())
+    labels_year=list(month_kwh_df.index.year)
+    
+    for k,elem in enumerate(labels_month):
+        if elem=='January':
+            labels_month[k]=str(labels_year[k]) + ' January'
+            
+    plt.xticks(loc,labels=labels_month,rotation=35)
+    
+    fig_genset_runtime.figimage(im, 10, 10, zorder=3, alpha=.2)
+    fig_genset_runtime.savefig("FigureExport/genset_droops_figure.png")
+    
+    return fig_genset_runtime
 
 
 
@@ -949,18 +1124,18 @@ def build_mean_battery_voltage_figure(total_datalog_df, month_mean_df,day_mean_d
                           drawstyle='steps-post')
     
     
-    day_max_df.plot(y=day_max_df.columns[channel_number_ubat_ref],
-                          color='y',
-                          marker='.',
-                          linestyle ='None',
-                          alpha=0.2,
-                          ax=axes_battmeans)
-    day_min_df.plot(y=day_min_df.columns[channel_number_ubat_ref],
-                          color='g',
-                          marker='.',
-                          linestyle ='None',
-                          alpha=0.2,
-                          ax=axes_battmeans)
+    #    day_max_df.plot(y=day_max_df.columns[channel_number_ubat_ref],
+    #                          color='y',
+    #                          marker='.',
+    #                          linestyle ='None',
+    #                          alpha=0.2,
+    #                          ax=axes_battmeans)
+    #    day_min_df.plot(y=day_min_df.columns[channel_number_ubat_ref],
+    #                          color='g',
+    #                          marker='.',
+    #                          linestyle ='None',
+    #                          alpha=0.2,
+    #                          ax=axes_battmeans)
     
     axes_battmeans.set_ylabel('Voltage [V]', fontsize=12)
     axes_battmeans.set_title('Monthly and daily mean battery voltages', fontsize=12, weight="bold")
@@ -974,6 +1149,8 @@ def build_mean_battery_voltage_figure(total_datalog_df, month_mean_df,day_mean_d
 
     
     return fig_battmeans
+
+
 
 
 def build_battery_temperature_figure(quarters_mean_df):
@@ -1063,8 +1240,18 @@ def build_bat_inout_figure(day_kwh_df, month_kwh_df):
     #axes_bat_inout.legend(["CHARGE", "DISCHARGE"])
     axes_bat_inout[1].legend()
     axes_bat_inout[1].grid(True)
-    plt.xticks(ind, labels=list(month_kwh_df.index.month_name()), rotation=30, ha = 'right')        
-  
+    #plt.xticks(ind, labels=list(month_kwh_df.index.month_name()), rotation=30, ha = 'right')        
+    labels_month=list(month_kwh_df.index.month_name())
+    labels_year=list(month_kwh_df.index.year)
+    loc, label= plt.xticks()
+
+    for k,elem in enumerate(labels_month):
+        if elem=='January':
+            labels_month[k]=str(labels_year[k]) + ' January'
+            
+    
+    plt.xticks(loc,labels=labels_month,rotation=35)
+
     fig_bat_inout.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_bat_inout.savefig("FigureExport/bat_inout.png")
 
@@ -1158,8 +1345,18 @@ def build_monthly_energy_sources_fraction_figure(month_kwh_df):
     p1=axes_ener.bar(ind, normed_solar.values, color=SOLAR_COLOR)
     p2=axes_ener.bar(ind, normed_grid.values, bottom=normed_solar.values, color=GENSET_COLOR)
     
-    plt.xticks(ind, labels=list(month_kwh_df.index.month_name()), rotation=30, ha = 'right')        
     
+    #plt.xticks(ind, labels=list(month_kwh_df.index.month_name()), rotation=30, ha = 'right')        
+    labels_month=list(month_kwh_df.index.month_name())
+    labels_year=list(month_kwh_df.index.year)
+    
+    for k,elem in enumerate(labels_month):
+        if elem=='January':
+            labels_month[k]=str(labels_year[k]) + ' January'
+            
+    loc, label= plt.xticks()
+    plt.xticks(loc,labels=labels_month,rotation=35)
+
     axes_ener.set_ylabel("Energy fraction [%]", fontsize=12)
     axes_ener.set_title("Where comes energy from? monthly means", fontsize=12, weight="bold")
     axes_ener.legend(["Solar", "Grid/Genset"]);
@@ -1209,21 +1406,35 @@ def build_sankey_figure(month_kwh_df,year_kwh_df):
     #channel_number_Pout_conso_Tot
     #channel_number_Pout_actif_Tot
     
-    # first diagram
+    sumofall=year_kwh_df.sum()
+    sumofall_solar=        sumofall[year_kwh_df.columns[channels_number_PsolarTot]].values[-1]
+    sumofall_grid=         sumofall[year_kwh_df.columns[channel_number_Pin_actif_Tot]].values[-1]
+    sumofall_chargebatt=   sumofall[year_kwh_df.columns[channels_number_Pchargebatt]].values[-1]
+    sumofall_dischargebatt=sumofall[year_kwh_df.columns[channels_number_Pdischargebatt]].values[-1]
+    sumofall_loads=        sumofall[year_kwh_df.columns[channel_number_Pout_conso_Tot]].values[-1]
+    
+
+    # TODO: different graph in function of period
     if False: #True:
-        solar_in=abs(last_month_solar)+1e-6
-        genset_in=last_month_grid
-        tot_chargebatt_out=last_month_chargebatt
-        tot_dischargebatt_in=-last_month_dischargebatt
-        
+        solar_in=abs(last_month_solar[0])+1e-6
+        genset_in=last_month_grid[0]
+        tot_chargebatt_out=last_month_chargebatt[0]
+        tot_dischargebatt_in=-last_month_dischargebatt[0]
         loads_out=last_month_loads
-    else:
-        solar_in=abs(last_year_solar)+1e-6
-        genset_in=last_year_grid
-        tot_chargebatt_out=last_year_chargebatt
-        tot_dischargebatt_in=-last_year_dischargebatt
+    elif False:
+        solar_in=abs(last_year_solar[0])+1e-6
+        genset_in=last_year_grid[0]
+        tot_chargebatt_out=last_year_chargebatt[0]
+        tot_dischargebatt_in=-last_year_dischargebatt[0]    
+        loads_out=last_year_loads[0]
         
-        loads_out=last_year_loads
+    else:
+        solar_in=abs(sumofall_solar)+1e-6
+        genset_in=sumofall_grid
+        tot_chargebatt_out=sumofall_chargebatt
+        tot_dischargebatt_in=-sumofall_dischargebatt
+        loads_out=sumofall_loads
+        
     
     #fluxes: 
     tot_prod_in=solar_in+genset_in
@@ -1278,7 +1489,9 @@ def build_sankey_figure(month_kwh_df,year_kwh_df):
     
     #sk.Sankey(ax=ax_sankey, flows=[minutes_with_transfer, minutes_without_transfer, -(minutes_with_transfer+minutes_without_transfer)], labels=['First', 'Second', 'Third'], orientations=[ 0, 0, -1]).finish()
     last_year=year_kwh_df.index.year[-1]
-    plt.title("Sankey energy flow diagram of system in the recorded data of : " +  str(last_year) + " (available files of this year)" )
+    #plt.title("Sankey energy flow diagram of system in the recorded data of : " +  str(last_year) + " (available files of this year)" )
+    plt.title("Sankey energy flow diagram of system for available data" )
+
     plt.axis('tight')
     plt.axis('equal')
 
@@ -1286,6 +1499,7 @@ def build_sankey_figure(month_kwh_df,year_kwh_df):
     fig_sankey.savefig("FigureExport/sankey_figure.png")
 
     return fig_sankey
+
 
 
 def build_daily_energies_figure(day_kwh_df):
@@ -1387,7 +1601,7 @@ def build_daily_energies_heatmap_figure(day_kwh_df):
                     ticks[week] = MONTHS[date.month - 1]
                 if date.dayofyear == 1:
                     ticks[week] += f'\n{date.year}'
-                if start <= date < end:
+                if start <= date <= end:
                     heatmap[day, week] = cal.get(val).loc[date, energies_of_the_year.columns[0]]
         mesh = ax.pcolormesh(x, y, heatmap, cmap = 'jet', edgecolors = 'grey')  #cmap = 'jet' cmap = 'inferno'  cmap = 'magma'
     
@@ -1563,23 +1777,19 @@ def build_monthly_energies_figure2(month_kwh_df):
 
 def main():
     total_datalog_df = pd.read_pickle(xt_all_csv_pandas_import.MIN_DATAFRAME_NAME)
+    #means
     quarters_mean_df = pd.read_pickle(xt_all_csv_pandas_import.QUARTERS_DATAFRAME_NAME)
     day_mean_df = pd.read_pickle(xt_all_csv_pandas_import.DAY_DATAFRAME_NAME)
     month_mean_df = pd.read_pickle(xt_all_csv_pandas_import.MONTH_DATAFRAME_NAME)
     year_mean_df = pd.read_pickle(xt_all_csv_pandas_import.YEAR_DATAFRAME_NAME)
+    
+    
+    #sums for energies:
+    day_kwh_df=pd.read_pickle(xt_all_csv_pandas_import.DAY_KWH_DATAFRAME_NAME)
+    month_kwh_df=pd.read_pickle(xt_all_csv_pandas_import.MONTH_KWH_DATAFRAME_NAME)
+    year_kwh_df=pd.read_pickle(xt_all_csv_pandas_import.YEAR_KWH_DATAFRAME_NAME)
 
     #%***************************************
-    #% task: compute kWh
-    # WARNING: it make sense only for P in KW
-    # TODO: make a dataframe for energies
-    #%****************************************
-
-    # min to day: *60*24/1000
-    # day to month: *60*24/1000
-
-    day_kwh_df = total_datalog_df.resample("1d").sum() / 60
-    month_kwh_df = total_datalog_df.resample("1M").sum() / 60
-    year_kwh_df = total_datalog_df.resample("1Y").sum() / 60
 
     # close all existing figures at start
     plt.close("all")
@@ -1588,8 +1798,11 @@ def main():
     print(" __________ GRAPH DISPLAY  _______________ ")
     print(" \n \n \n ")
 
-    all_channels_labels = list(total_datalog_df.columns)
-    channels_number_ubat = [i for i, elem in enumerate(all_channels_labels) if "Ubat" in elem]
+    #all_channels_labels = list(total_datalog_df.columns)
+    #channels_number_ubat = [i for i, elem in enumerate(all_channels_labels) if "Ubat" in elem]
+    #channel_number_ubat_ref=[i for i, elem in enumerate(all_channels_labels) if 'System Ubat ref [Vdc]' in elem]
+
+
 
 
     ######################################
@@ -1604,6 +1817,8 @@ def main():
     # AC-details
     ###########################
     build_ac_power_figure(total_datalog_df, quarters_mean_df)
+    build_ac_apparentpower_figure(total_datalog_df, quarters_mean_df)
+
     build_consumption_profile(total_datalog_df)
 
     ######################
@@ -1620,55 +1835,25 @@ def main():
     build_all_battery_voltages_figure(total_datalog_df, month_mean_df)
     build_bat_inout_figure(day_kwh_df, month_kwh_df)
 
-
-    #######
-    ## Charge /discharge power
-    ########
-    #    channels_number_ubatbsp = [i for i, elem in enumerate(all_channels_labels) if "BSP-Ubat" in elem]
-    #    channels_number_ibatbsp = [i for i, elem in enumerate(all_channels_labels) if "BSP-Ibat" in elem]
-    #    battery_power = (
-    #        total_datalog_df.values[:, channels_number_ubatbsp]
-    #        * total_datalog_df.values[:, channels_number_ibatbsp]
-    #        / 1000
-    #    )
-
-    # battery_power_df=pd.DataFrame({"Battery Power [kW]": battery_power,
-    #                               "Battery Charge Power [kW]": battery_power,
-    #                               "Battery Discharge Power [kW]": battery_power},
-    #                                index=total_datalog_df.index)
-    #
-    #
-
-    # plt.show
-    
-    
+   
 
     ##########
     # Solar Power:
     ############
     build_solar_production_figure(total_datalog_df)
     build_solar_pv_voltage_figure(total_datalog_df)
-    build_solar_energy_prod_figure(total_datalog_df)
+    build_solar_energy_prod_figure(total_datalog_df,day_kwh_df,month_kwh_df)
+    
+    
     ##########
-    # Time on the genset:
+    # Genset:
     ############
     build_genset_time_figure(total_datalog_df)
+    build_genset_runtime(day_kwh_df, month_kwh_df)
     build_genset_VF_behaviour(total_datalog_df)
     # plt.show()
 
-    # Analyse Batterie
 
-    # axes4.bar(x=month_mean_df.index,
-    #        y=total_datalog_df.columns[channels_number_ubat],
-    #        color='r',
-    #        ax=axes4_2)
-    #
-    # axes4.plot(x=total_datalog_df.index,
-    #         y=total_datalog_df.columns[channels_number_ubat],
-    #         grid=True,
-    #         title='All Battery Voltages',
-    #         ax=axes4)
-    
     
     ############
     # Bar Monthly and Daily Energies:
@@ -1685,88 +1870,10 @@ def main():
 
     #build_monthly_energies_polar_figure(total_datalog_df,month_kwh_df)
     
+    build_interactive_figure(total_datalog_df)
     plt.show()
 
 
-#######
-## HEAT MAPS:  TODO  for the daily consumption
-########
-# https://scipython.com/book/chapter-7-matplotlib/examples/a-heatmap-of-boston-temperatures/
-# https://vietle.info/post/calendarheatmap-python/
-
-
-##minimal battery voltage
-# chanel_number=single_days['channels_label'].index('XT-Ubat- (MIN) [Vdc]')
-# XT_batt_valmin=total_datalog_value[:,chanel_number]
-#
-##battery voltage
-# chanel_number=single_days['channels_label'].index('XT-Ubat [Vdc]')
-# XT_batt_val=total_datalog_value[:,chanel_number]
-#
-#
-# chanel_number=single_days['channels_label'].index('BSP-Ubat [Vdc]')
-# BSP_batt_val=total_datalog_value[:,chanel_number]
-#
-# chanel_number=single_days['channels_label'].index('BSP-Ibat [Adc]')
-# BSP_I_batt_val=total_datalog_value[:,chanel_number]
-#
-##'BSP-Ubat [Vdc]',
-## 'BSP-Ibat [Adc]',
-## 'BSP-SOC [%]',
-## 'BSP-Tbat [°C]',
-#
-#
-#
-# chanel_number=single_days['channels_label'].index('XT-Pin a [kW]')
-# grid_power=total_datalog_value[:,chanel_number]
-#
-#
-# print(" ************* ")
-# print("BEWARE: for 3-phased systems, the sum of the three inverters")
-# grid_power=total_datalog_value[:,chanel_number]+total_datalog_value[:,chanel_number+1]+total_datalog_value[:,chanel_number+2]
-# print(" comment this line if not the case ")
-# print(" ************* ")
-# print("  ")
-# minutes_of_the_day=total_time_vectors
-#
-#
-#
-#
-# fig1=plt.figure(1)
-# plt.clf()
-# plt.plot(minutes_of_the_day/60/24, XT_batt_val, 'b')
-# plt.plot(minutes_of_the_day/60/24, BSP_batt_val, 'g')
-# plt.plot(minutes_of_the_day/60/24, XT_batt_valmin,'y+-')
-#
-# plt.xlabel('Time (days)', fontsize=12)
-# plt.ylabel('Voltage [V]', fontsize=12)
-# plt.title('Battery Voltage', fontsize=18, weight="bold")
-#
-# plt.ax = fig1.gca()
-# plt.ax.grid(True)
-#
-# plt.show()
-# fig1.legend(['mesure XT', 'mesure BSP', 'xt min'])
-#
-#
-# fig2=plt.figure(2)
-# plt.clf()
-# plt.hist(BSP_batt_val, 25, facecolor='r', alpha=0.75)
-#
-# plt.xlabel('Voltage [V]')
-# plt.ylabel('Occurence')
-# plt.title('Histogram of Battery Voltage')
-#
-##plt.text(52, 25, r'$\mu=100,\ \sigma=15$')
-##plt.axis([40, 60, 0, 0.03])
-# plt.grid(True)
-# plt.show()
-#
-# plt.ax = fig2.gca()
-# plt.ax.grid(True)
-#
-#
-#
 
 
 if __name__ == "__main__":

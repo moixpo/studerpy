@@ -46,12 +46,14 @@ from xt_graph_plotter_pandas import (
     build_operating_mode_pies,
     build_total_battery_voltages_currents_figure,
     build_bsp_voltage_current_figure,
+    build_bsp_soc_current_figure,
     build_battery_voltage_histogram_figure,
     build_battery_chargedischarge_histogram_figure,
     build_mean_battery_voltage_figure,
     build_battery_temperature_figure,
     build_bat_inout_figure,
     build_ac_power_figure,
+    build_ac_apparentpower_figure,
     build_sys_power_figure,
     build_consumption_profile,
     build_power_histogram_figure,
@@ -60,12 +62,14 @@ from xt_graph_plotter_pandas import (
     build_solar_energy_prod_figure,
     build_genset_time_figure,
     build_genset_VF_behaviour,
+    build_genset_runtime,
     build_all_battery_voltages_figure,
     build_monthly_energies_figure2,
     build_monthly_energy_sources_fraction_figure,
     build_sankey_figure,
     build_daily_energies_figure,
     build_daily_energies_heatmap_figure
+    build_interactive_figure
 )
 from tkinter import scrolledtext
 
@@ -77,10 +81,10 @@ from tkinter import scrolledtext
 LARGE_FONT = ("Verdana", 12)
 SYNOPT_VALUES_FONT = ("Verdana", 16, "bold")
 # SYNOPTIC_IMAGE_SIZE=(1000, 596)
-USED_ICON = "icone_albedo.ico"
-HELP_PICTURE="offgrid.jpg"
+USED_ICON = "media/icone_albedo.ico"
+HELP_PICTURE="media/offgrid.jpg"
 
-style.use("ggplot")
+style.use("ggplot") #ggplot  seaborn bmh dark_background Solarize_Light2  seaborn-darkgrid
 DEBUG = False
 
 
@@ -106,10 +110,25 @@ def redirect_console_output(new_io):
 
 
 def popuphelp():
+    textpopup=str("First you have to load some csv data then you can plot it... \n"+
+               "You can see the day/month and year summary in the csvExport folder \n"+
+               "Figures are in the FigureExport Folder \n"+
+               "\n"+
+               "Not all cases are well treated (with grid feeding, with external charger, ...) so always be critic about what you see...  \n"+
+               "\n"+
+               "\n"+
+               "Programm freely shared without support! \n"+               
+               "Please see our website and take contact us you think we can do something for you: wwww.offgrid.ch  \n \n"
+               )
+
     messagebox.showinfo(
         "Help",
-        "First you have to load some csv data then you can plot it... \n \n  Programm freely shared without support! \n Please see our website and take contact us you think we can do something for you: wwww.offgrid.ch  \n \n Not all cases are well treated (with grid feeding, with external charger, ...) so always be critic about what you see...  ",
+        textpopup
     )
+#    messagebox.showinfo(
+#        "Help",
+#        "First you have to load some csv data then you can plot it... \n You can see the day/month and year summary in the csvExport folder \nFigures are in the FigureExport Folder \n  \nProgramm freely shared without support! \n Please see our website and take contact us you think we can do something for you: wwww.offgrid.ch  \n \n Not all cases are well treated (with grid feeding, with external charger, ...) so always be critic about what you see...  ",
+#    )
 
 
 def popuperror(message):
@@ -349,7 +368,7 @@ class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
 
-        self.image = Image.open("first_page_background.jpg")
+        self.image = Image.open("media/first_page_background.jpg")
         self.img_copy = self.image.copy()
 
         self.background_image = ImageTk.PhotoImage(self.image)
@@ -458,16 +477,20 @@ class PageGraph(tk.Frame):
         self.tabs = []
 
         total_datalog_df = pd.read_pickle(xt_all_csv_pandas_import.MIN_DATAFRAME_NAME)
-        quarters_mean_df = pd.read_pickle(xt_all_csv_pandas_import.QUARTERS_DATAFRAME_NAME)
-        day_mean_df=pd.read_pickle(xt_all_csv_pandas_import.DAY_DATAFRAME_NAME)
-        month_mean_df = pd.read_pickle(xt_all_csv_pandas_import.MONTH_DATAFRAME_NAME)
-        # year_mean_df = pd.read_pickle(xt_all_csv_pandas_import.YEAR_DATAFRAME_NAME)
         
-        day_kwh_df = total_datalog_df.resample("1d").sum() / 60
-        month_kwh_df = total_datalog_df.resample("1M").sum() / 60
-        year_kwh_df = total_datalog_df.resample("1Y").sum() / 60
-
-
+        #means
+        quarters_mean_df = pd.read_pickle(xt_all_csv_pandas_import.QUARTERS_DATAFRAME_NAME)
+        day_mean_df = pd.read_pickle(xt_all_csv_pandas_import.DAY_DATAFRAME_NAME)
+        month_mean_df = pd.read_pickle(xt_all_csv_pandas_import.MONTH_DATAFRAME_NAME)
+        year_mean_df = pd.read_pickle(xt_all_csv_pandas_import.YEAR_DATAFRAME_NAME)
+        
+        
+        #sums for energies:
+        day_kwh_df=pd.read_pickle(xt_all_csv_pandas_import.DAY_KWH_DATAFRAME_NAME)
+        month_kwh_df=pd.read_pickle(xt_all_csv_pandas_import.MONTH_KWH_DATAFRAME_NAME)
+        year_kwh_df=pd.read_pickle(xt_all_csv_pandas_import.YEAR_KWH_DATAFRAME_NAME)
+    
+       
         # This data structure loads each figure and supplies the the tab title in one
         # tab_configuration_seq is a tuple of TabConfiguration instances:
         tab_configuration_seq = (
@@ -481,6 +504,12 @@ class PageGraph(tk.Frame):
                 build_bsp_voltage_current_figure,
                 (total_datalog_df,),
                 "BSP voltage-current",
+                self.battery_notebook,
+            ),
+            TabConfiguration(
+                build_bsp_soc_current_figure,
+                (total_datalog_df,),
+                "BSP SOC-current",
                 self.battery_notebook,
             ),
             TabConfiguration(
@@ -526,21 +555,27 @@ class PageGraph(tk.Frame):
                 self.gridgenset_notebook,
             ),
             TabConfiguration(
+                build_genset_runtime,
+                (day_kwh_df,month_kwh_df,),
+                "Hours per day/month",
+                self.gridgenset_notebook,
+            ),        
+            TabConfiguration(
                 build_genset_VF_behaviour,
                 (total_datalog_df,),
                 "AC-source V-F with power",
                 self.gridgenset_notebook,
-            ), 
-            TabConfiguration(
-                build_sankey_figure,
-                (month_kwh_df, year_kwh_df, ),
-                "Sankey",
-                self.system_notebook,
             ),
             TabConfiguration(
                 build_monthly_energies_figure2,
                 (month_kwh_df,),
                 "Monthly Energies",
+                self.system_notebook,
+            ), 
+            TabConfiguration(
+                build_sankey_figure,
+                (month_kwh_df, year_kwh_df, ),
+                "Sankey",
                 self.system_notebook,
             ),
             TabConfiguration(
@@ -558,7 +593,7 @@ class PageGraph(tk.Frame):
             TabConfiguration(
                 build_sys_power_figure,
                 (total_datalog_df,quarters_mean_df),
-                "System Power Flux",
+                "System powers",
                 self.system_notebook,
             ), 
             TabConfiguration(
@@ -569,7 +604,7 @@ class PageGraph(tk.Frame):
             ),
             TabConfiguration(
                 build_solar_energy_prod_figure,
-                (total_datalog_df,),
+                (total_datalog_df,day_kwh_df,month_kwh_df,),
                 "Solar energy production",
                 self.solar_notebook
             ),
@@ -600,7 +635,13 @@ class PageGraph(tk.Frame):
             TabConfiguration(
                 build_ac_power_figure,
                 (total_datalog_df, quarters_mean_df),
-                "AC-peak power",
+                "All active powers",
+                self.consumption_notebook,
+            ),
+            TabConfiguration(
+                build_ac_apparentpower_figure,
+                (total_datalog_df, quarters_mean_df),
+                "AC-peak powers",
                 self.consumption_notebook,
             ),
             TabConfiguration(
@@ -609,7 +650,12 @@ class PageGraph(tk.Frame):
                 "Consumption profile",
                 self.consumption_notebook,
             ),
-                    
+            TabConfiguration(
+                build_interactive_figure,
+                (total_datalog_df, ),
+                "TEST INTERACTIVE",
+                self.consumption_notebook,
+            ),       
         )
 
         progress_updater.set_maximum_progress_value(len(tab_configuration_seq))
@@ -642,7 +688,7 @@ class PageGraph(tk.Frame):
         #canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
         #NavigationToolbar2Tk(canvas, tab)
         
-        #TODO: fix problem with toolbar hiden with figure size
+        #TODO: fix problem with toolbar hiden with figure size: not OK when resizing
         canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
 
         toolbar = NavigationToolbar2Tk(canvas, tab)
@@ -673,7 +719,7 @@ class PageLoadData(tk.Frame):
     def __init__(self, parent, controller):
         self.controller = controller
         super().__init__(parent)
-        label = tk.Label(self, text="Load Data: select the first .csv file and all dates after this one will be processed", font=LARGE_FONT)
+        label = tk.Label(self, text="Load Data: select the first valid .csv file, \n all dates after this one will be processed", font=LARGE_FONT)
         label.pack(pady=10, padx=10)
         
         #TODO: add pic for the button
@@ -682,12 +728,11 @@ class PageLoadData(tk.Frame):
         #buttonImage = tk.Image.open('loadcsv.png')
         #self.buttonPhoto = tk.ImageTk.PhotoImage(buttonImage)
         #myButton = ttk.Button(self, image=buttonPhoto, padding='10 10 10 10')
-        
-        
+         
         #photo_csv=tk.PhotoImage(file="loadcsv.png")
-        #button1 = ttk.Button(self, text="Select CSV file", image=photo_csv, command=self.load_data_from_filepath, height=100, width=200)
-        
+        #button1 = ttk.Button(self, text="Select CSV file", image=photo_csv, command=self.load_data_from_filepath, height=100, width=200)        
         #button1 = ttk.Button(self, text="Select CSV file", image=photo_csv, command=self.load_data_from_filepath)
+        
         button1 = ttk.Button(self, text="Select CSV file", command=self.load_data_from_filepath)
 
         button1.pack()

@@ -46,6 +46,7 @@
 
 #import numpy as np
 import pandas as pd
+import datetime as dt
 #import csv
 #import time
 
@@ -54,7 +55,7 @@ import pandas as pd
 
 def xt_daylog_pandas_import(file_path, user_delimiter=',', offsetcolumn=0):
     
-    mydateparser=lambda x: pd.datetime.strptime(x, "%d.%m.%Y %H:%M")
+    mydateparser=lambda x: dt.datetime.strptime(x, "%d.%m.%Y %H:%M")
     pandatest = pd.read_csv(file_path, 
                             encoding="ISO-8859-1", 
                             delimiter=user_delimiter,

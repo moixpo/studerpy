@@ -54,6 +54,10 @@ DAY_DATAFRAME_NAME = "saved_dataframe_log_day"
 MONTH_DATAFRAME_NAME = "saved_dataframe_log_month"
 YEAR_DATAFRAME_NAME = "saved_dataframe_log_year"
 
+DAY_KWH_DATAFRAME_NAME='saved_dataframe_kWh_day'
+MONTH_KWH_DATAFRAME_NAME='saved_dataframe_kWh_month'
+YEAR_KWH_DATAFRAME_NAME='saved_dataframe_kWh_year'
+
 
 def main():
     """Entry point for standalone usage"""
@@ -325,16 +329,19 @@ def run(file_path):
                             )
                             files_with_problems.append(cvs_filename)
 
+    print('\n Import finished, check corrupted files: ' , files_with_problems)
+
     #%***************************************
     #% task 4: Concatenate those datas in one array
     #%****************************************
     # Concatenate those data
 	
-    print(" \n__________ Check Validity and concatenate data  _______________ ")
+    print(" \n__________ Check Validity and concatenate data   ")
 
-
-	#To simplifiy for the moment, let's say the first dataframe is the reference  for the length and the number of columns:
-
+	
+    #To simplifiy for the moment, let's say there is 1440 min per day in a file, else reject. There is no NaN in file:
+    #TODO: improve acceptance of valid data even if day is not full
+        
     ref_df=all_datalogs_df[0]
     all_datalogs_list_cleaned_df=all_datalogs_df
 
@@ -349,11 +356,19 @@ def run(file_path):
     #supress3=0
     
     for i, tested_df in enumerate(all_datalogs_df):
-        if np.isnan(tested_df.values[:,0]).any():
+        
+        
+        if len(tested_df)!=1440:
+            clean_necessary=True
+            indexes_to_remove.append(i)
+            print(' tested ', str(i), '  missing data at end of file, check: ', str(tested_df.index[1])[0:10])
+     
+    
+        elif np.isnan(tested_df.values[:,0]).any():
         #check that the first column is full of float numbers
              clean_necessary=True
              indexes_to_remove.append(i)
-             print(' tested ', str(i), '  NaN in first column')
+             print(' tested ', str(i), '  NaN in first column, check file of: ', str(tested_df.index[1])[0:10])
              #supress3+=1
              
     #    elif len(tested_df.columns)!=len(ref_df.columns):
@@ -390,49 +405,22 @@ def run(file_path):
     #    
     #    
     
+
+
     
-    
-    
-    ###############
-    #all_datalogs_list_cleaned_df2=all_datalogs_list_cleaned_df    
-    #all_datalogs_list_cleaned_df2=all_datalogs_df
-    #clean_necessary2=False
-    #indexes_to_remove2=[]
-    #for i, tested_df in enumerate(all_datalogs_list_cleaned_df):
-    #    if len(tested_df)!=len(ref_df):
-    #        #try with any
-    #         print(' tested ', str(i), '  length NOT  OK')
-    #         clean_necessary2=True
-    #         indexes_to_remove2.append(i)
-    #    
-    #    
-    #
-    ##check that they have all the same  columns:
-    #type(tested_df.values[:,0])
-    #
-    
-    
-    #total_time_vectors=np.array([])
-    #total_datalog_value=np.array([])
-    #
-    #number_of_files=0
-    #for single_days in all_datalogs:
-    #    if number_of_files==0:
-    #        total_time_vectors= single_days['time_minutes_of_the_day']
-    #        total_datalog_value=single_days['datalog_value']
-    #    else:
-    #        total_time_vectors=np.append(total_time_vectors, single_days['time_minutes_of_the_day']+1440*number_of_files)
-    #        total_datalog_value=np.vstack((total_datalog_value, single_days['datalog_value']))
-    #    
-    #    number_of_files+=1   
-    #    
-                 
+    ##########################
+    #Cleaning finished, we can assemble the multi days:                     
     #total_datalog_df=pd.concat(all_datalogs_df)  #concatenate all the daily dataFrames imported in a single one
-    total_datalog_df=pd.concat(all_datalogs_list_cleaned_df)  #concatenate all the daily dataFrames imported in a single one
+    #total_datalog_df=pd.concat(all_datalogs_list_cleaned_df)  #concatenate all the daily dataFrames imported in a single one
+    total_datalog_df=pd.concat(all_datalogs_list_cleaned_df, sort=True)  #concatenate all the daily dataFrames imported in a single one
+
     
     
     
     
+    
+    print("\n \n________________ ")
+    print("DATA CLEANING ")
     #***************************************
     # task 5: Cleaning of data
     #****************************************      
@@ -441,8 +429,7 @@ def run(file_path):
     #replace it with the value of the minute before.
     
     
-    print(" ")
-    print(" _______ CLEANING OF DATA FOR BATTERIES with 0V mesurements  ______ ")
+    print("  CLEANING OF DATA FOR BATTERIES with 0V mesurements   ")
     
     channels_labels=list(total_datalog_df.columns)
     
@@ -469,8 +456,8 @@ def run(file_path):
                 
     
     
-    print(" ")
-    print(" _______ PROCESS DATA FOR TRANSFERT RELAY________ ")
+
+    print("  PROCESS DATA FOR TRANSFERT RELAY  ")
     #REPLACE 2 values (undetermined) with 0.5 to estimate the transfert time
     #if there were a switch over during this minute, lets consider the transfer was like previously...
     #'XT-Transfert [] I3020 L1',   
@@ -488,11 +475,19 @@ def run(file_path):
                 #print("Transfer transition ")
             k+=1   
     
+        #un deuxième check à cause des changement de langue pendant la vie de l'installation:
+        if len(chanel_number_for_transfer)>1:
+            k=0
+            for tested_value in total_datalog_df.values[:,chanel_number_for_transfer[1]]:
+                if tested_value>1.5:
+                    total_datalog_df.values[k,chanel_number_for_transfer[1]]=total_datalog_df.values[k-1,chanel_number_for_transfer[1]]
+                    #print("Transfer transition ")
+                k+=1   
+        
     
     
-    
-    print(" ")
-    print(" __________ CLEANING OF MESURED POWER: ZERO on Pin and Iin in when there is no transfer...  _______________ ")
+    #print(" ")
+    print("  CLEANING OF MESURED POWER: ZERO on Pin and Iin in when there is no transfer...   ")
     
     
     #If the transfer relay is open, the input power and current is forced to zero:
@@ -502,19 +497,30 @@ def run(file_path):
     chanel_number_for_Iin=[i for i, elem in enumerate(channels_labels) if 'I3116' in elem]
     chanel_number_for_Pin=[i for i, elem in enumerate(channels_labels) if 'I3119' in elem]
     
-    #Check it is not empty to be sure there is an XT: for the case with solar chargers only:
+    
+   #Check it is not empty to be sure there is an XT: for the case with solar chargers only:
     if chanel_number_for_Pin:
         
-        for chan in [chanel_number_for_Iin+ chanel_number_for_Pin]:
+        for chan in chanel_number_for_Iin+chanel_number_for_Pin:
             k=0    
             for tested_value in total_datalog_df.values[:,chanel_number_for_transfer[0]]:
                 if tested_value==0.0:
                     #total_datalog_df.values[k,chanel_number_for_Iin[m]]=0.0    
                     total_datalog_df.values[k,chan]=0.0    
-                    #print("Transfer open ")
+                    #print("Transfer open, clean chan " , str(chan))
                 k+=1
     
-        
+        #un deuxième check à cause des changement de langue pendant la vie de l'installation:
+        if len(chanel_number_for_transfer)>1:  
+            for chan in chanel_number_for_Iin+chanel_number_for_Pin:
+                k=0    
+                for tested_value in total_datalog_df.values[:,chanel_number_for_transfer[1]]:
+                    if tested_value==0.0:
+                        #total_datalog_df.values[k,chanel_number_for_Iin[m]]=0.0    
+                        total_datalog_df.values[k,chan]=0.0    
+                        #print("Transfer open, clean chan " , str(chan))
+                    k+=1
+     
             ##Clean of inputs currents: there are up to 3 in an system, one per phase
             #for chan in chanel_number_for_Iin:
             #    k=0    
@@ -538,10 +544,8 @@ def run(file_path):
                 
                 
     
-        #print(" ")
-    print(" __________ CLEANING OF MESURED POWER: ZERO on Pout and Iout in when inverter is OFF... TODO _______________ ")
-        #    
-        #     
+
+    print("  CLEANING OF MESURED POWER: ZERO on Pout and Iout in when inverter is OFF... ")
         ##If the Xtender is OFF the output current and powers are zero 
         ##       'XT-Modus [] I3028 L1',
         ##       'XT-Pout [kVA] I3098 L1',
@@ -549,26 +553,46 @@ def run(file_path):
         ##       'XT-Pout a [kW] I3101 L1-1',
         ##    
         #
-        ##TODO: finish the job
-        #
-        #chanel_number_for_XTmode=[i for i, elem in enumerate(channels_labels) if 'I3028' in elem]
-        #chanel_number_for_Pout_s=[i for i, elem in enumerate(channels_labels) if 'I3098' in elem]
-        #chanel_number_for_Pout_smax=[i for i, elem in enumerate(channels_labels) if 'I3097' in elem]
-        #chanel_number_for_Pout_a=[i for i, elem in enumerate(channels_labels) if 'I3101' in elem]
-        #
-        #
-        #
-        #k=0    
-        #for tested_value in total_datalog_df.values[:,chanel_number_for_XTmode[0]]:
-        #    if tested_value==0.0:
-        #        total_datalog_df.values[k,chanel_number_for_Pout_s]=0.0    
-        #        total_datalog_df.values[k,chanel_number_for_Pout_smax]=0.0
-        #        total_datalog_df.values[k,chanel_number_for_Pout_a]=0.0
-        #
-        #        print("inverter off ")
-        #    k+=1    
-        #
-        #
+        
+        #TODO: speed-up that part, it takes time for multi units system.
+    
+   
+    chanel_number_for_XTmode=[i for i, elem in enumerate(channels_labels) if 'I3028' in elem]
+      
+    
+        
+        
+    chanel_number_for_Pout_s=[i for i, elem in enumerate(channels_labels) if 'I3098' in elem]
+    chanel_number_for_Pout_smax=[i for i, elem in enumerate(channels_labels) if 'I3097' in elem]
+    chanel_number_for_Pout_a=[i for i, elem in enumerate(channels_labels) if 'I3101' in elem]
+    
+        #Check it is not empty to be sure there is an XT: for the case with solar chargers only:
+    if chanel_number_for_XTmode:
+    
+        for chan in chanel_number_for_Pout_s+chanel_number_for_Pout_smax+chanel_number_for_Pout_a:
+            k=0    
+            for tested_value in total_datalog_df.values[:,chanel_number_for_XTmode[0]]:
+                if tested_value==6.0:
+                    #total_datalog_df.values[k,chanel_number_for_Iin[m]]=0.0    
+                    total_datalog_df.values[k,chan]=0.0    
+                    #print("Inverter OFF, clean chan " , str(chan))
+                k+=1
+    
+        #un deuxième check à cause des changement de langue pendant la vie de l'installation:
+        if len(chanel_number_for_transfer)>1:  
+            for chan in chanel_number_for_Pout_s+chanel_number_for_Pout_smax+chanel_number_for_Pout_a:
+                k=0    
+                for tested_value in total_datalog_df.values[:,chanel_number_for_XTmode[1]]:
+                    if tested_value==6.0:
+                        #total_datalog_df.values[k,chanel_number_for_Iin[m]]=0.0    
+                        total_datalog_df.values[k,chan]=0.0    
+                        #print("Inverter OFF, clean chan " , str(chan))
+                    k+=1
+        
+    
+        
+    #    si xt mode ==6 c'est OFF; 
+    
         #
         #if len(chanel_number_for_XTmode)>1:
         #    #raise Exception('CHANGEMENT LANGUE PAS TRAITE CORRECTEMENT NI MULTI UNITS! DEMULTIPLICATION DES CANAUX CONSTATEE!')
@@ -577,6 +601,7 @@ def run(file_path):
         #    print(" ")
     
         
+
     
       
     
@@ -625,11 +650,13 @@ def run(file_path):
     
     
     
+
     #Séparation des puissances positives et négative pour différentier injection consommation sur AC-IN et la conso de l'AC-coupling sur ac-out:
-    PinTot_power_pos=np.zeros(length)
-    PinTot_power_neg=np.zeros(length)
-    PoutTot_power_pos=np.zeros(length)
-    PoutTot_power_neg=np.zeros(length)
+    PinTot_power_pos=np.zeros(length)* np.nan
+    PinTot_power_neg=np.zeros(length)* np.nan
+    PoutTot_power_pos=np.zeros(length)* np.nan
+    PoutTot_power_neg=np.zeros(length)* np.nan
+
     
     
     for k, tested_value in enumerate(PinTot):
@@ -681,7 +708,7 @@ def run(file_path):
                                                                                     or ('VT-UbaM [Vdc] I11039 1' in elem)]
         #In that case the battery power is assessed with the sum of 
         print(" ")
-        print(" __________ WARNING: THERE IS NO BSP, THE BATT POWER IS ESTIMATED BUT NOT MEASURED: this is wrong with external battery chargers ______")
+        print(" **** WARNING: THERE IS NO BSP, THE BATT POWER IS ESTIMATED BUT NOT MEASURED: this is wrong with external battery chargers ______")
         print(" ")
         
         #Bilan système: Pinvertertobatt+Psol avec Pinverter= Pin-Pout avec rendements si positif *0.95 si négatif /0.95
@@ -738,7 +765,7 @@ def run(file_path):
     
     
             
-    #
+   #
     #
     #k=0
     #for tested_value in total_datalog_df.values[:,chan]:
@@ -809,6 +836,8 @@ def run(file_path):
     year_mean_df.columns=newlabels_Y   
         
         
+    print("_____________________")
+    print(" SAVE DATA  ")
 
 	# ***************************************
 	# Save in file the precomputed datas for later for the graph display
@@ -820,20 +849,6 @@ def run(file_path):
     year_mean_df.to_pickle(YEAR_DATAFRAME_NAME)
     
     
-	# import matplotlib.pyplot as plt
-	# import pandas as pd
-	# file_name='saved_dataframe_log_min'
-	# total_datalog_df = pd.read_pickle(file_name)
-	# file_name='saved_dataframe_log_quarters'
-	# quarters_mean_df=pd.read_pickle(file_name)
-	# file_name='saved_dataframe_log_day'
-	# day_mean_df = pd.read_pickle(file_name)
-	# file_name='saved_dataframe_log_month'
-	# month_mean_df = pd.read_pickle(file_name)
-	# file_name='saved_dataframe_log_year'
-	# year_mean_df = pd.read_pickle(file_name)
-	#
-	#
 
 	#%***************************************
 	#% Compute kWh
@@ -844,9 +859,217 @@ def run(file_path):
 	# min to day: *60*24/1000
 	# day to month: *60*24/1000
 
-    day_kwh_df = total_datalog_df.resample("1d").sum() / 60
-    month_kwh_df = total_datalog_df.resample("1M").sum() / 60
-    year_kWh_df = total_datalog_df.resample("1Y").sum() / 60
+    #    day_kwh_df = total_datalog_df.resample("1d").sum() / 60
+    #    month_kwh_df = total_datalog_df.resample("1M").sum() / 60
+    #    year_kWh_df = total_datalog_df.resample("1Y").sum() / 60
+    
+    
+    
+    day_kwh_df=total_datalog_df.resample("1d").sum()/60
+    #month_kwh_df=total_datalog_df.resample("1M").sum()/60
+    #year_kwh_df=total_datalog_df.resample("1Y").sum()/60
+       
+    #If the day had no data (inexistant, corrupted or rejected)  fill with NaN
+    # to see this, we check the sum of battery voltages, this indicates if all voltages were 0.0 
+    #and then that there's no data, replace it with nan to indicate it is not a real 0.0
+    
+    battery_sum=day_kwh_df.values[:,channel_number_ubat_ref]
+    
+    #day_kwh_df.values[:,channel_number_ubat_ref]
+    
+    for k, tested_value in enumerate(battery_sum):
+        if tested_value==0.0:
+            day_kwh_df.values[k,:]=np.nan
+    
+    
+    month_kwh_df=day_kwh_df.resample("1M").sum()
+    year_kwh_df=day_kwh_df.resample("1Y").sum()
+    
+    
+    
+    
+    
+    
+    day_kwh_df.to_pickle(DAY_KWH_DATAFRAME_NAME)
+    month_kwh_df.to_pickle(MONTH_KWH_DATAFRAME_NAME)
+    year_kwh_df.to_pickle(YEAR_KWH_DATAFRAME_NAME)
+    
+    
+    
+    
+    
+    
+    list_of_colums_wanted= ['System Pout Consumption power (ALL) [kW]',
+                            'System Pout AC-coupling back power (ALL) [kW]',
+                            'System Pin Consumption power (ALL) [kW]',
+                            'System Pin Injection power (ALL) [kW]',
+                            'System Batt Charge Power Pbatt [kW]',
+                            'System Batt Discharge Power Pbatt [kW]',
+                            'Solar power (ALL) [kW] I17999 ALL' ]
+    
+    list_of_new_names= ['System Pout Consumption Energy [kWh]',
+                        'System Pout AC-coupling Energy [kWh]',
+                        'System Pin Consumption Energy [kWh]',
+                        'System Pin Injection Energy [kWh]',
+                        'System Batt Charge Energy [kWh]',
+                        'System Batt Discharge Energy [kWh]',
+                        'Solar Power Energy [kWh]' ]
+    
+    selected_day_kwh=day_kwh_df[list_of_colums_wanted]
+    selected_day_kwh.columns=list_of_new_names
+    
+    
+    
+    selected_month_kwh=month_kwh_df[list_of_colums_wanted]
+    selected_month_kwh.columns=list_of_new_names
+    
+    
+    
+    selected_year_kwh=year_kwh_df[list_of_colums_wanted]
+    selected_year_kwh.columns=list_of_new_names
+    
+    
+    
+    
+    print(" Estimate missing datalogs files for each month")
+    
+    
+    #TODO: compter les jours présents/manquants par mois ou par année
+    #TODO: estimer l'énergie manquante
+    
+    #Take all the days available in one month
+    
+    #for k in [1:12]
+    first_year=month_kwh_df.index.year[0]
+    last_year=month_kwh_df.index.year[-1]
+    
+    
+    month_kwh_df.index.month
+    
+    #for testit in month_kwh_df.index:
+    #    print('year: ', str(testit.year),'month: ', str(testit.month) )
+        
+        
+    nombre_de_jours_du_mois_dans_dataframe=[]
+    nombre_de_jours_corrompus=[]
+    nombre_de_jours_total_du_mois=[]
+    nombre_de_jours_valides=[]
+    nombre_de_jours_du_mois_a_compenser=[]
+    facteur_compensation=[]
+    #nombre_de_jours_du_mois à calculer
+    # df['days_in_month'] = df['date'].dt.daysinmonth
+    #p = pd.Period('2018-2-17')
+    #p = pd.Period('2016-2-17')
+    #p.days_in_month
+    
+    #selected_day_kwh.index[1].days_in_month
+    
+    mois_de_lannee=list(range(1, 13))
+    k=0
+    
+    for testit in month_kwh_df.index:
+        n_year=testit.year
+        n_month=testit.month
+        temp2=selected_day_kwh[selected_day_kwh.index.year == n_year]
+        temp3=temp2[temp2.index.month == n_month]
+        
+        temp4=total_datalog_df[(total_datalog_df.index.month == n_month)]
+        temp5=temp4[(temp4.index.year == n_year)]
+      
+        p = pd.Period(str(n_year)+ '-'+str(n_month) +'-01')
+        nombre_de_jours_total_du_mois.append(p.days_in_month)
+        
+        nombre_de_jours_du_mois_dans_dataframe.append(len(temp3)) #attention, uniquement pour premier et dernier mois, pour les mois au milieu les jours manquants sont remplis de nan
+        nombre_de_jours_corrompus.append(temp3.isnull().sum(axis = 0)[1])
+        nombre_de_jours_valides.append(nombre_de_jours_du_mois_dans_dataframe[k]-nombre_de_jours_corrompus[k])
+    
+        nombre_de_jours_du_mois_a_compenser.append(nombre_de_jours_total_du_mois[k]-nombre_de_jours_du_mois_dans_dataframe[k]+nombre_de_jours_corrompus[k])
+        if nombre_de_jours_valides[k]==0:
+            facteur_compensation.append(0.0)
+        else:
+            facteur_compensation.append(1.0+nombre_de_jours_du_mois_a_compenser[k]/nombre_de_jours_valides[k])
+    
+        print('  ', str(n_year), '-' ,str(n_month), 
+              'has', str(nombre_de_jours_total_du_mois[k]),
+              'days; ','valid: ', str(nombre_de_jours_valides[k]), 
+              '; corrupted/missing: ', str(nombre_de_jours_corrompus[k]),
+              '; to compensate:', str(nombre_de_jours_du_mois_a_compenser[k]),
+              'with factor', str(facteur_compensation[k])
+              )
+              #'days; ','in dataframe: ', str(nombre_de_jours_du_mois_dans_dataframe[k]), 
+    
+        
+        k=k+1
+        
+    
+    # Using DataFrame.insert() to add a column  loc, column, value, allow_duplicates=False)
+    selected_month_kwh.insert(0,"Month number of day", nombre_de_jours_total_du_mois,False) 
+    selected_month_kwh.insert(1,"Missing/corrupted", nombre_de_jours_corrompus,False) 
+    selected_month_kwh.insert(2,"Days to compensate", nombre_de_jours_du_mois_a_compenser,False) 
+    selected_month_kwh.insert(3,"Comp factor", facteur_compensation,False) 
+    
+    
+    
+    
+    ##addition of the channels in the month kWh       
+    #selected_month_kwh['nombre_de_jours_total_du_mois']=nombre_de_jours_total_du_mois
+    #selected_month_kwh['nombre_de_jours_corrompus']=nombre_de_jours_corrompus
+    #selected_month_kwh['nombre_de_jours_du_mois_a_compenser']=nombre_de_jours_du_mois_a_compenser
+    #
+    #n_year=2019
+    #n_month=5
+    #temp4=total_datalog_df[(total_datalog_df.index.month == n_month)]
+    #temp5=temp4[(temp4.index.year == n_year)]
+    #temp2=selected_day_kwh[selected_day_kwh.index.year == n_year]
+    #temp3=temp2[temp2.index.month == n_month]
+    
+            
+            #TODO: c'est pas fini... mettre dans le dataframe des mois et des années!
+            
+            
+    
+    ##old way to do it, first try of implementation:
+    #mois_de_lannee=list(range(1, 13))
+    #k=0
+    #for n_year in list(range(first_year, last_year+1)):
+    #    temp2=selected_day_kwh[selected_day_kwh.index.year == n_year]
+    #    for n_month in mois_de_lannee:
+    #        temp3=temp2[temp2.index.month == n_month]
+    #        
+    #        p = pd.Period(str(n_year)+ '-'+str(n_month) +'-01')
+    #        nombre_de_jours_total_du_mois.append(p.days_in_month)
+    #        
+    #        nombre_de_fichiers_importes_du_mois.append(len(temp3))
+    #        nombre_de_jours_manquants.append(temp3.isnull().sum(axis = 0)[1])
+    #        
+    #        nombre_de_jours_du_mois_a_compenser.append(nombre_de_jours_total_du_mois[k]-nombre_de_fichiers_importes_du_mois[k]+nombre_de_jours_manquants[k])
+    #        
+    #        print(str(n_year), '-' ,str(n_month), 
+    #              '- files available: ', str(nombre_de_fichiers_importes_du_mois[k]),
+    #              'on', str(nombre_de_jours_total_du_mois[k]),
+    #              'days; corrupted files: ', str(nombre_de_jours_manquants[k]),
+    #              '; to compensate:', str(nombre_de_jours_du_mois_a_compenser[k]))
+    #                
+    #        k=k+1
+    #        
+    #        
+            
+            #TODO: c'est pas fini... mettre dans le dataframe des mois et des années!
+            
+            
+    
+    
+    print(" SAVE CSV of daily, monthly and yearly energies   ")
+
+    
+    
+    selected_day_kwh.to_csv('csvExport/day_kWh.csv', index=True)
+    selected_month_kwh.to_csv('csvExport/month_kWh.csv', index=True)
+    selected_year_kwh.to_csv('csvExport/year_kWh.csv', index=True)
+
+
+
+    
 
 	# ***************************************
 	#%Timer
@@ -855,7 +1078,7 @@ def run(file_path):
     new_time = time.time()
     #print("--- %s seconds ---" % (new_time - old_time))
     old_time = new_time
-    print(" ______________________________ ")
+    print("\n ______________________________ ")
 
     print("--TOTAL TIME- %s seconds ---" % (new_time - start_time))
     print("--for  %s files converted ---" % (number_of_files))
@@ -880,8 +1103,11 @@ if __name__ == "__main__":
 	# GRAPHS
 	#***************************************
     print(" ")
-    print(" __________ GRAPH DISPLAY  _______________ ")
+    print(" __________ SIMPLE GRAPH DISPLAY  _______________ ")
     print(" \n \n \n ")
+
+
+    total_datalog_df = pd.read_pickle(MIN_DATAFRAME_NAME)
 
     channels_labels = list(total_datalog_df.columns)
 
