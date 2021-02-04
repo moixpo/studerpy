@@ -372,6 +372,9 @@ def build_bsp_voltage_current_figure(total_datalog_df):
 
 
 def build_interactive_figure(total_datalog_df):
+    
+    #example from: https://blog.finxter.com/matplotlib-widgets-sliders/
+    
     # Initial x and y arrays
     x = np.linspace(0, 10, 30)
     y = np.sin(0.5*x)*np.sin(x*np.random.randn(30))
