@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Aug 10 23:01:42 2020
 
 @author: moix_
 @modified by: brycepg
@@ -33,8 +32,11 @@ from PIL import ImageTk, Image
 
 import time
 import types
-import datetime
-from datetime import datetime
+#import datetime
+#from datetime import datetime
+
+import datetime as dt
+
 
 import os
 from functools import partial
@@ -50,6 +52,7 @@ from xt_graph_plotter_pandas import (
     build_battery_voltage_histogram_figure,
     build_battery_chargedischarge_histogram_figure,
     build_mean_battery_voltage_figure,
+    build_batvoltage_profile,
     build_battery_temperature_figure,
     build_bat_inout_figure,
     build_ac_power_figure,
@@ -68,8 +71,9 @@ from xt_graph_plotter_pandas import (
     build_monthly_energy_sources_fraction_figure,
     build_sankey_figure,
     build_daily_energies_figure,
-    build_daily_energies_heatmap_figure
-    build_interactive_figure
+    build_daily_energies_heatmap_figure,
+    build_interactive_figure,
+    build_energyorigin_pie_figure
 )
 from tkinter import scrolledtext
 
@@ -82,7 +86,7 @@ LARGE_FONT = ("Verdana", 12)
 SYNOPT_VALUES_FONT = ("Verdana", 16, "bold")
 # SYNOPTIC_IMAGE_SIZE=(1000, 596)
 USED_ICON = "media/icone_albedo.ico"
-HELP_PICTURE="media/offgrid.jpg"
+HELP_PICTURE="media/image_helppopup.jpg"
 
 style.use("ggplot") #ggplot  seaborn bmh dark_background Solarize_Light2  seaborn-darkgrid
 DEBUG = False
@@ -434,6 +438,8 @@ class PageGraph(tk.Frame):
         self.solar_notebook = self.build_categorical_tab("Solar")
         self.battery_notebook = self.build_categorical_tab("Battery")
         self.gridgenset_notebook = self.build_categorical_tab("Grid/Genset")
+        self.interactive_notebook = self.build_categorical_tab("INTERACTIVE")
+
         # Keep track of created tabs
         self.tabs = []
         self.parent = parent
@@ -489,11 +495,64 @@ class PageGraph(tk.Frame):
         day_kwh_df=pd.read_pickle(xt_all_csv_pandas_import.DAY_KWH_DATAFRAME_NAME)
         month_kwh_df=pd.read_pickle(xt_all_csv_pandas_import.MONTH_KWH_DATAFRAME_NAME)
         year_kwh_df=pd.read_pickle(xt_all_csv_pandas_import.YEAR_KWH_DATAFRAME_NAME)
-    
-       
+
+#TODO: REMOVEIT
+
+        #For tests!!
+        start_date = dt.date(2018, 7, 1)
+        end_date = dt.date(2018, 8, 30)
+        
+        #start_date = dt.date(2018, 10, 1)
+        #end_date = dt.date(2018, 10, 30)
+#TODO: REMOVEIT
+
+
+
         # This data structure loads each figure and supplies the the tab title in one
         # tab_configuration_seq is a tuple of TabConfiguration instances:
         tab_configuration_seq = (
+            TabConfiguration(
+                build_consumption_profile,
+                (total_datalog_df, start_date, end_date, ),
+                "Consumption INTERACT",
+                self.interactive_notebook,
+            ),
+            TabConfiguration(
+                build_sankey_figure,
+                (month_kwh_df, year_kwh_df, ),
+                "Sankey INTERACT",
+                self.interactive_notebook,
+            ),
+            TabConfiguration(
+                build_power_histogram_figure,
+                (total_datalog_df,quarters_mean_df),
+                "hist INTERACT",
+                self.interactive_notebook,
+            ),
+            TabConfiguration(
+                build_batvoltage_profile,
+                (total_datalog_df, start_date, end_date, ),
+                "Voltage INTERACT",
+                self.interactive_notebook,
+            ),                              
+            TabConfiguration(
+                build_energyorigin_pie_figure,
+                (month_kwh_df,),
+                "Origin Energy INTERACT",
+                self.interactive_notebook,
+            ),
+            TabConfiguration(
+                build_genset_time_figure,
+                (total_datalog_df,),
+                "Gen/Grid INTERACT",
+                self.interactive_notebook,
+            ),            
+            TabConfiguration(
+                build_interactive_figure,
+                (total_datalog_df, ),
+                "TEST INTERACT",
+                self.interactive_notebook,
+            ),
             TabConfiguration(
                 build_mean_battery_voltage_figure,
                 (total_datalog_df,month_mean_df,day_mean_df),
@@ -649,12 +708,6 @@ class PageGraph(tk.Frame):
                 (total_datalog_df, ),
                 "Consumption profile",
                 self.consumption_notebook,
-            ),
-            TabConfiguration(
-                build_interactive_figure,
-                (total_datalog_df, ),
-                "TEST INTERACTIVE",
-                self.consumption_notebook,
             ),       
         )
 
@@ -772,8 +825,8 @@ def main():
     """Main entry point for the gui"""
     
     #USE LIMITER... in case of...    
-    now = datetime.now()
-    #print(datetime.utcnow())
+    now = dt.datetime.now()
+    #print(dt.utcnow())
     print('This month is ', now.month, 'in the year ' ,now.year)
     if now.year>=2021:
         if now.month>=12:

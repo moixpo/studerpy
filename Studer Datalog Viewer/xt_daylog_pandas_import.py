@@ -1,6 +1,8 @@
 ###################################
 #  xt_daylog_pandas_import.py
-#  Version py 1.0   june 2020
+#  Version py 1.0   sept 2019
+#  Version py 1.1   jan 2021
+
 #  Moix P-O
 #  WWW.OFFGRID.CH    Albedo-Engineering ALBEDO.CH
 #
@@ -19,14 +21,14 @@
 #   user_delimiter=','      for english Excel display (used by default)
 #   user_delimiter=';'      for french Excel
 #
+#   offset=0                for different types of datalogs
 #
+
 
 #######
 # OUTPUTS:
 #The returned daylog_df is a panda timeserie dataframe
 #
-
-
 #it is different than the old matlab version given below, somme infos will be added in the future TODO ...
 #   day_datalog =
 #            'channels_label': 1xn list             name of the n channels logged
