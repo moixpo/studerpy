@@ -73,7 +73,8 @@ from xt_graph_plotter_pandas import (
     build_daily_energies_figure,
     build_daily_energies_heatmap_figure,
     build_interactive_figure,
-    build_energyorigin_pie_figure
+    build_energyorigin_pie_figure,
+    InteractiveFigure,
 )
 from tkinter import scrolledtext
 
@@ -731,7 +732,10 @@ class PageGraph(tk.Frame):
             parent: A notebook which the tab will be attached to
         """
         tab = self.build_tab(text, parent=parent)
-        self.attach_figure_to_tab(figure, tab)
+        if isinstance(figure, InteractiveFigure):
+            figure.attach_to_tab(tab)
+        else:
+            self.attach_figure_to_tab(figure, tab)
         self.tabs.append(tab)
 
 

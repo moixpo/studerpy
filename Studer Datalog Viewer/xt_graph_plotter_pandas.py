@@ -73,6 +73,22 @@ WATERMARK_PICTURE='media/watermark_logo_empty.png'
 im = Image.open(WATERMARK_PICTURE)   
 
 
+class InteractiveFigure:
+    """Return an instance of this class when creating interactive objects"""
+    def __init__(self, figure, create_tab_callback):
+        """
+        Args:
+            figure: A matplotlib figure
+            create_tab_callback: A callback which creates the figure's tab canvas
+                create_tab_callback needs two arguments: The figure, and the
+                tab to attach to. The tab is supplied in attach_to_tab
+        """
+        self.figure = figure
+        self.create_tab_callback = create_tab_callback
+
+    def attach_to_tab(self, tab):
+        """Attach the interactive figure to tab"""
+        self.create_tab_callback(self.figure, tab)
 
 
 def build_sys_power_figure(total_datalog_df, quarters_mean_df):
@@ -1896,6 +1912,24 @@ def build_monthly_energies_figure2(month_kwh_df):
 
 
 
+class InteractiveFigure:
+    """Return an instance of this class when creating interactive objects"""
+    def __init__(self, figure, create_tab_callback):
+        """
+        Args:
+            figure: A matplotlib figure
+            create_tab_callback: A callback which creates the figure's tab canvas
+                create_tab_callback needs two arguments: The figure, and the
+                tab to attach to. The tab is supplied in attach_to_tab
+        """
+        self.figure = figure
+        self.create_tab_callback = create_tab_callback
+
+    def attach_to_tab(self, tab):
+        """Attach the interactive figure to tab"""
+        self.create_tab_callback(self.figure, tab)
+
+
 def build_interactive_figure(total_datalog_df):
     
     #example from: https://blog.finxter.com/matplotlib-widgets-sliders/
@@ -1918,28 +1952,34 @@ def build_interactive_figure(total_datalog_df):
     p, = ax.plot(x_spline, y_spline, 'g')
     ax.set_title("Test of an interactive figure", fontsize=12, weight="bold")
 
-    # Defining the Slider button
-    # xposition, yposition, width and height
-    ax_slide = plt.axes([0.25, 0.1, 0.65, 0.03])
-    
-    # Properties of the slider
-    s_factor = Slider(ax_slide, 'Smoothing factor',
-                      0.1, 6, valinit=6, valstep=0.2)
-    
     # Updating the plot
     def update(val):
-        current_v = s_factor.val
-        spline = UnivariateSpline(x, y, s = current_v)
+        spline = UnivariateSpline(x, y, s = float(val))
         p.set_ydata(spline(x_spline))
-        #redrawing the figure
+        # redrawing the figure
         fig.canvas.draw()
-        
-    # Calling the function "update" when the value of the slider is changed
-    s_factor.on_changed(update)
-    
-    
-    
-    return fig
+
+    def create_tab(figure, tab):
+        figure.tight_layout()
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+        import tkinter as tk
+        canvas = FigureCanvasTkAgg(figure, tab)
+        slider = tk.Scale(
+            tab,
+            from_=0,
+            to_=6,
+            orient=tk.HORIZONTAL,
+            resolution=0.1,
+            command=update,
+            label="Smoothing factor",
+        )
+
+        slider.pack(side=tk.BOTTOM, fill=tk.X, padx=50, pady=(0, 10))
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+        toolbar = NavigationToolbar2Tk(canvas, tab)
+        toolbar.update()
+
+    return InteractiveFigure(fig, create_tab)
 
 
 def main():
