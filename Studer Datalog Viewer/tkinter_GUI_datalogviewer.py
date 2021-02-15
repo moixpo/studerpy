@@ -261,7 +261,7 @@ class DatalogVisuApp(tk.Tk):
 
         self.frames = {}
 
-        for F in (StartPage, PageLoadData, PageGraph):
+        for F in (PageGraph, PageLoadData, StartPage):
 
             frame = F(container, self)
 
