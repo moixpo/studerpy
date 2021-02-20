@@ -27,6 +27,11 @@ import xt_all_csv_pandas_import
 from scipy.interpolate import UnivariateSpline
 from matplotlib.widgets import Slider
 
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import tkinter as tk
+from tkinter import ttk
+from tkcalendar import DateEntry
+
 #colorset
 PINK_COLOR='#FFB2C7'
 RED_COLOR='#CC0000'
@@ -89,6 +94,26 @@ class InteractiveFigure:
     def attach_to_tab(self, tab):
         """Attach the interactive figure to tab"""
         self.create_tab_callback(self.figure, tab)
+
+
+class DateRangeReference:
+    """References to returning DateEntry objects"""
+    def __init__(self, start_cal, end_cal):
+        """Both arguments should be ttk.DateEntry objects"""
+        self.start_cal = start_cal
+        self.end_cal = end_cal
+
+    def start_date(self):
+        """
+        Returns: dt.datetime.Datetime
+        """
+        return self.start_cal.get_date()
+
+    def end_date(self):
+        """
+        Returns: dt.datetime.Datetime
+        """
+        return self.end_al.getdate()
 
 
 def build_sys_power_figure(total_datalog_df, quarters_mean_df):
@@ -1498,21 +1523,13 @@ def build_energyorigin_pie_figure(day_kwh_df):
     return fig_origin
 
 
-
-def build_sankey_figure(month_kwh_df,year_kwh_df, start_date = dt.date(2000, 1, 1), end_date = dt.date(2050, 12, 31)):
-    
-    
-    #for tests:  TODO
-    #start_date = dt.date(2018, 7, 1)
-    #end_date = dt.date(2018, 8, 30) 
-    
-    
+def _build_sankey_figure(day_kwh_df, start_date, end_date):
     ################
     #Energy flux
     #https://flothesof.github.io/sankey-tutorial-matplotlib.html
     
-    fig_sankey, ax_sankey =plt.subplots(nrows=1, ncols=1,figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
-    all_channels_labels=month_kwh_df.columns
+    figure, ax_sankey =plt.subplots(nrows=1, ncols=1,figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
+    all_channels_labels=day_kwh_df.columns
 
     channels_number_PsolarTot       = [i for i, elem in enumerate(all_channels_labels) if 'Solar power (ALL) [kW]' in elem]
     channel_number_Pin_actif_Tot    = [i for i, elem in enumerate(all_channels_labels) if "Pin power (ALL)" in elem]
@@ -1525,51 +1542,18 @@ def build_sankey_figure(month_kwh_df,year_kwh_df, start_date = dt.date(2000, 1, 
     channels_number_Pchargebatt= [i for i, elem in enumerate(all_channels_labels) if "System Batt Charge Power Pbatt" in elem]
     channels_number_Pdischargebatt= [i for i, elem in enumerate(all_channels_labels) if "System Batt Discharge Power Pbatt" in elem]
 
-   
     
-    
-    last_month_solar=       month_kwh_df[month_kwh_df.columns[channels_number_PsolarTot]].values[-1]
-    last_month_grid=        month_kwh_df[month_kwh_df.columns[channel_number_Pin_actif_Tot]].values[-1]
-    last_month_chargebatt=  month_kwh_df[month_kwh_df.columns[channels_number_Pchargebatt]].values[-1]
-    last_month_dischargebatt=month_kwh_df[month_kwh_df.columns[channels_number_Pdischargebatt]].values[-1]
-    last_month_loads=       month_kwh_df[month_kwh_df.columns[channel_number_Pout_conso_Tot]].values[-1]
-    
-    last_year_solar=        year_kwh_df[year_kwh_df.columns[channels_number_PsolarTot]].values[-1]
-    last_year_grid=         year_kwh_df[year_kwh_df.columns[channel_number_Pin_actif_Tot]].values[-1]
-    last_year_chargebatt=   year_kwh_df[year_kwh_df.columns[channels_number_Pchargebatt]].values[-1]
-    last_year_dischargebatt=year_kwh_df[year_kwh_df.columns[channels_number_Pdischargebatt]].values[-1]
-    last_year_loads=        year_kwh_df[year_kwh_df.columns[channel_number_Pout_conso_Tot]].values[-1]
-    #channel_number_Pout_conso_Tot
-    #channel_number_Pout_actif_Tot
-    
-    sumofall=year_kwh_df.sum()
-    sumofall_solar=        sumofall[year_kwh_df.columns[channels_number_PsolarTot]].values[-1]
-    sumofall_grid=         sumofall[year_kwh_df.columns[channel_number_Pin_actif_Tot]].values[-1]
-    sumofall_chargebatt=   sumofall[year_kwh_df.columns[channels_number_Pchargebatt]].values[-1]
-    sumofall_dischargebatt=sumofall[year_kwh_df.columns[channels_number_Pdischargebatt]].values[-1]
-    sumofall_loads=        sumofall[year_kwh_df.columns[channel_number_Pout_conso_Tot]].values[-1]
-    
-
-    # TODO: different graph in function of period, or interctive with selectable dates...
-    if False: #True:
-        solar_in=abs(last_month_solar[0])+1e-6
-        genset_in=last_month_grid[0]
-        tot_chargebatt_out=last_month_chargebatt[0]
-        tot_dischargebatt_in=-last_month_dischargebatt[0]
-        loads_out=last_month_loads
-    elif False:
-        solar_in=abs(last_year_solar[0])+1e-6
-        genset_in=last_year_grid[0]
-        tot_chargebatt_out=last_year_chargebatt[0]
-        tot_dischargebatt_in=-last_year_dischargebatt[0]    
-        loads_out=last_year_loads[0]
-        
-    else:
-        solar_in=abs(sumofall_solar)+1e-6
-        genset_in=sumofall_grid
-        tot_chargebatt_out=sumofall_chargebatt
-        tot_dischargebatt_in=-sumofall_dischargebatt
-        loads_out=sumofall_loads
+    sumofall=day_kwh_df[start_date:end_date].sum()
+    sumofall_solar=        sumofall[day_kwh_df.columns[channels_number_PsolarTot]].values[-1]
+    sumofall_grid=         sumofall[day_kwh_df.columns[channel_number_Pin_actif_Tot]].values[-1]
+    sumofall_chargebatt=   sumofall[day_kwh_df.columns[channels_number_Pchargebatt]].values[-1]
+    sumofall_dischargebatt=sumofall[day_kwh_df.columns[channels_number_Pdischargebatt]].values[-1]
+    sumofall_loads=        sumofall[day_kwh_df.columns[channel_number_Pout_conso_Tot]].values[-1]
+    solar_in=abs(sumofall_solar)+1e-6
+    genset_in=sumofall_grid
+    tot_chargebatt_out=sumofall_chargebatt
+    tot_dischargebatt_in=-sumofall_dischargebatt
+    loads_out=sumofall_loads
         
     
     #fluxes: 
@@ -1624,18 +1608,82 @@ def build_sankey_figure(month_kwh_df,year_kwh_df, start_date = dt.date(2000, 1, 
     #matplotlib.sankey.Sankey(ax=None, scale=1.0, unit='', format='%G', gap=0.25, radius=0.1, shoulder=0.03, offset=0.15, head_angle=100, margin=0.4, tolerance=1e-06, **kwargs)[source]
     
     #sk.Sankey(ax=ax_sankey, flows=[minutes_with_transfer, minutes_without_transfer, -(minutes_with_transfer+minutes_without_transfer)], labels=['First', 'Second', 'Third'], orientations=[ 0, 0, -1]).finish()
-    last_year=year_kwh_df.index.year[-1]
+    #last_year=year_kwh_df.index.year[-1]
     #plt.title("Sankey energy flow diagram of system in the recorded data of : " +  str(last_year) + " (available files of this year)" )
-    plt.title("Sankey energy flow diagram of system for available data" )
+    plt.title(f"From {start_date} to {end_date}", fontsize=12)
+    figure.suptitle("Sankey energy flow diagram of system for available data", fontsize=16)
 
     plt.axis('tight')
     plt.axis('equal')
 
-    fig_sankey.figimage(im, 10, 10, zorder=3, alpha=.2)
-    fig_sankey.savefig("FigureExport/sankey_figure.png")
+    figure.figimage(im, 10, 10, zorder=3, alpha=.2)
+    figure.savefig("FigureExport/sankey_figure.png")
+    return figure
 
-    return fig_sankey
 
+def build_sankey_figure(day_kwh_df):
+    start_date_limit = day_kwh_df.index[0].date()
+    end_date_limit = day_kwh_df.index[-1].date()
+    figure = _build_sankey_figure(day_kwh_df, start_date_limit, end_date_limit)
+
+    def create_tab(figure, tab):
+        def update():
+            nonlocal canvas
+            new_end_date = end_cal.get_date()
+            new_start_date = start_cal.get_date()
+            empty_test = day_kwh_df[new_start_date:new_end_date].empty
+            if empty_test:
+                tk.messagebox.showerror("Error", "The selected date range has no data.\nPlease select a date range between {start_date_limit} and {end_date_limit}")
+                return
+            if new_end_date > end_date_limit:
+                new_end_date = end_date_limit
+            if new_start_date < start_date_limit:
+                new_start_date = start_date_limit
+            start_cal.set_date(new_start_date)
+            end_cal.set_date(new_end_date)
+            figure = _build_sankey_figure(
+                day_kwh_df,
+                new_start_date,
+                new_end_date,
+            )
+            canvas.get_tk_widget().destroy()
+            canvas = FigureCanvasTkAgg(figure, tab)
+            canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+
+        canvas = FigureCanvasTkAgg(figure, tab)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
+
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+    return InteractiveFigure(figure, create_tab)
+
+
+def create_tkinter_date_range_frame(parent):
+    """
+    Create the interactive tkinter Date and Label objects
+    to enter dates
+    """
+    date_frame = ttk.Frame(parent)
+
+    # Start
+    ttk.Label(date_frame, text='Start Date').pack(padx=10, pady=10, side=tk.LEFT)
+    start_cal = DateEntry(
+        date_frame, width=12, background='darkblue',
+        foreground='white', borderwidth=2)
+    start_cal.pack(padx=10, pady=10, side=tk.LEFT)
+
+    # End
+    ttk.Label(date_frame, text='End Date').pack(padx=10, pady=10, side=tk.LEFT)
+    end_cal = DateEntry(
+        date_frame, width=12, background='darkblue',
+        foreground='white', borderwidth=2)
+    end_cal.pack(padx=10, pady=10, side=tk.LEFT)
+    date_frame.pack(side=tk.BOTTOM)
+    return DateRangeReference(start_cal, end_cal)
 
 
 def build_daily_energies_figure(day_kwh_df):
@@ -1910,24 +1958,6 @@ def build_monthly_energies_figure2(month_kwh_df):
 #    return fig_ener2
 
 
-
-
-class InteractiveFigure:
-    """Return an instance of this class when creating interactive objects"""
-    def __init__(self, figure, create_tab_callback):
-        """
-        Args:
-            figure: A matplotlib figure
-            create_tab_callback: A callback which creates the figure's tab canvas
-                create_tab_callback needs two arguments: The figure, and the
-                tab to attach to. The tab is supplied in attach_to_tab
-        """
-        self.figure = figure
-        self.create_tab_callback = create_tab_callback
-
-    def attach_to_tab(self, tab):
-        """Attach the interactive figure to tab"""
-        self.create_tab_callback(self.figure, tab)
 
 
 def build_interactive_figure(total_datalog_df):

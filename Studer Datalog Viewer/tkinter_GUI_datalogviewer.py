@@ -522,7 +522,7 @@ class PageGraph(tk.Frame):
             ),
             TabConfiguration(
                 build_sankey_figure,
-                (month_kwh_df, year_kwh_df, ),
+                (day_kwh_df,),
                 "Sankey INTERACT",
                 self.interactive_notebook,
             ),
