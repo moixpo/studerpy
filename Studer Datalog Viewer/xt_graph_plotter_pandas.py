@@ -247,96 +247,137 @@ def build_operating_mode_pies(total_datalog_df):
     return fig_mode
 
 
-def build_consumption_profile(total_datalog_df, start_date = dt.date(2000, 1, 1), end_date = dt.date(2050, 12, 31)):
-    #for tests:
-    #start_date = dt.date(2018, 7, 1)
-    #end_date = dt.date(2018, 8, 30) 
+def _plot_consumption_profile_axes(axes_pow_by_min_of_day, temp2, all_channels_labels, channel_number, start_date=None, end_date=None):
+    # XXX why am I loosing some values here?
+    old = temp2
+    if start_date or end_date:
+        temp2 = temp2[start_date:end_date]
+    time_of_day_in_hours=list(temp2.index.hour+temp2.index.minute/60)
+    channel_label=all_channels_labels[channel_number[0]]
+    max_y_lim = temp2[channel_label].max()
+    max_y_lim = (max_y_lim * .05) + max_y_lim
+    axes_pow_by_min_of_day.plot(time_of_day_in_hours,
+                      temp2[channel_label].values,
+                      marker='+',
+                      alpha=0.25,
+                      color='b',
+                      linestyle='None')
+
+    #faire la moyenne de tous les points qui sont à la même minute du jour:
+    mean_by_minute=np.zeros(1440)
+    x1=np.array(range(0,1440))
+    for k in x1:
+        tem_min_pow1=temp2[temp2['Time of day in minutes'].values == k]
+        mean_by_minute[k]=np.nanmean(tem_min_pow1[channel_label].values)
+
+    axes_pow_by_min_of_day.plot(x1/60, mean_by_minute,
+                      color='r',
+                      linestyle ='-',
+                      linewidth=2)
+
+    #faire la moyenne de tous les points qui sont à la même heure:
+    mean_by_hour=np.zeros(24)
+    x2=np.array(range(0,24))
+    for k in x2:
+        tem_min_pow2=temp2[temp2.index.hour == k]
+        mean_by_hour[k]=np.nanmean(tem_min_pow2[channel_label].values)
+
+    axes_pow_by_min_of_day.plot(x2, mean_by_hour,
+                      color='c',
+                      linestyle ='-',
+                      linewidth=2,
+                      drawstyle='steps-post')
+
+    #mean power:
+    #axes_pow_by_min_of_day.axhline(np.nanmean(total_datalog_df[channel_label].values), color='k', linestyle='dashed', linewidth=2)
+    axes_pow_by_min_of_day.axhline(mean_by_minute.mean(), color='k', linestyle='dashed', linewidth=2)
+    text_to_disp='Mean power= ' + str(round(mean_by_minute.mean(), 2)) + ' kW'
+    axes_pow_by_min_of_day.text(0.1,mean_by_minute.mean()+0.1,  text_to_disp, horizontalalignment='left',verticalalignment='bottom')
+    axes_pow_by_min_of_day.set_ylim((0, max_y_lim))
+
+
+def get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, df):
+    new_end_date = end_cal.get_date()
+    new_start_date = start_cal.get_date()
+    empty_test = df[new_start_date:new_end_date].empty
+    if empty_test:
+        tk.messagebox.showerror("Error", f"The selected date range has no data.\nPlease select a date range between {start_date_limit} and {end_date_limit}")
+        raise Exception
+    if new_end_date > end_date_limit:
+        new_end_date = end_date_limit
+    if new_start_date < start_date_limit:
+        new_start_date = start_date_limit
+    start_cal.set_date(new_start_date)
+    end_cal.set_date(new_end_date)
+
+
+def build_consumption_profile(total_datalog_df):
     
-    temp1 = total_datalog_df[total_datalog_df.index.date >= start_date]
-    temp2 = temp1[temp1.index.date <= end_date]
+    #temp1 = total_datalog_df[total_datalog_df.index.date >= start_date]
+    #temp2 = temp1[temp1.index.date <= end_date]
+    start_date_limit = total_datalog_df.index[0].date()
+    end_date_limit = total_datalog_df.index[-1].date()
+    end_date_limit = end_date_limit.replace(day=end_date_limit.day+1)
+    temp2 = total_datalog_df
 
 
     all_channels_labels = list(total_datalog_df.columns)
     channel_number = [i for i, elem in enumerate(all_channels_labels) if 'Pout Consumption power (ALL)' in elem]
-   
     #channel_number=channel_number_Pout_conso_Tot
-    time_of_day_in_hours=list(temp2.index.hour+temp2.index.minute/60)
     time_of_day_in_minutes=list(temp2.index.hour*60+temp2.index.minute)
-    
-    #add a channels to the dataframe with minutes of the day to be able to sort data on it: 
+
+    #add a channels to the dataframe with minutes of the day to be able to sort data on it:
     #Create a new entry in the dataframe:
     temp2['Time of day in minutes']=time_of_day_in_minutes
-        
-        
+
+
     fig_pow_by_min_of_day, axes_pow_by_min_of_day = plt.subplots(nrows=1, ncols=1, figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
-    
-    
+
+
     #maybe it is empty if there is no inverter:
     if channel_number:
-        
-        channel_label=all_channels_labels[channel_number[0]]
-        
-        axes_pow_by_min_of_day.plot(time_of_day_in_hours,
-                          temp2[channel_label].values, 
-                          marker='+',
-                          alpha=0.25,
-                          color='b',
-                          linestyle='None')
-       
-        
-    
-        #faire la moyenne de tous les points qui sont à la même minute du jour:
-        mean_by_minute=np.zeros(1440)
-        x1=np.array(range(0,1440))
-        for k in x1:
-            tem_min_pow1=temp2[temp2['Time of day in minutes'].values == k]
-            mean_by_minute[k]=np.nanmean(tem_min_pow1[channel_label].values)
-            
-    
-        axes_pow_by_min_of_day.plot(x1/60, mean_by_minute,
-                          color='r',
-                          linestyle ='-',
-                          linewidth=2)
-    
-        #faire la moyenne de tous les points qui sont à la même heure:
-        mean_by_hour=np.zeros(24)
-        x2=np.array(range(0,24))
-        for k in x2:
-            tem_min_pow2=temp2[temp2.index.hour == k]
-            mean_by_hour[k]=np.nanmean(tem_min_pow2[channel_label].values)
-            
-    
-        axes_pow_by_min_of_day.plot(x2, mean_by_hour,
-                          color='c',
-                          linestyle ='-',
-                          linewidth=2,
-                          drawstyle='steps-post')
-        
-        #mean power:
-        #axes_pow_by_min_of_day.axhline(np.nanmean(total_datalog_df[channel_label].values), color='k', linestyle='dashed', linewidth=2)
-        axes_pow_by_min_of_day.axhline(mean_by_minute.mean(), color='k', linestyle='dashed', linewidth=2)
-        text_to_disp='Mean power= ' + str(round(mean_by_minute.mean(), 2)) + ' kW'
-        axes_pow_by_min_of_day.text(0.1,mean_by_minute.mean()+0.1,  text_to_disp, horizontalalignment='left',verticalalignment='bottom')
+        _plot_consumption_profile_axes(axes_pow_by_min_of_day, temp2, all_channels_labels, channel_number)
         axes_pow_by_min_of_day.legend(["All points", "min mean profile" ,"hour mean profile"])
         axes_pow_by_min_of_day.set_ylabel("Power [kW]", fontsize=12)
         axes_pow_by_min_of_day.set_xlabel("Time [h]", fontsize=12)
         axes_pow_by_min_of_day.set_xlim(0,24)
         axes_pow_by_min_of_day.set_title("Consumption profile by hour of the day", fontsize=12, weight="bold")
         axes_pow_by_min_of_day.grid(True)
-        
-    
+
+
     else:
         #axes_pow_by_min_of_day.text(0.0, 0.0, "There is no Studer inverter!", horizontalalignment='left',verticalalignment='bottom')
         axes_pow_by_min_of_day.set_title("There is no Studer inverter!", fontsize=12, weight="bold")
-        
-    
+
+
     fig_pow_by_min_of_day.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_pow_by_min_of_day.savefig("FigureExport/typical_power_profile_figure.png")
 
+    def create_tab(figure, tab):
+        def update():
+            nonlocal canvas
+            new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
+            [ax] = figure.get_axes()
+            ax.lines.clear()
+            for text in ax.texts:
+                # XXX How do I delete text?
+                text.set_text("")
+            _plot_consumption_profile_axes(axes_pow_by_min_of_day, temp2, all_channels_labels, channel_number, new_start_date, new_end_date)
+            canvas.draw()
+
+        canvas = FigureCanvasTkAgg(figure, tab)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
+
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+
+    if channel_number:
+        return InteractiveFigure(fig_pow_by_min_of_day, create_tab)
     return fig_pow_by_min_of_day
-
-
-
 
 
 def build_power_histogram_figure(total_datalog_df, quarters_mean_df):
@@ -1624,27 +1665,19 @@ def _build_sankey_figure(day_kwh_df, start_date, end_date):
 def build_sankey_figure(day_kwh_df):
     start_date_limit = day_kwh_df.index[0].date()
     end_date_limit = day_kwh_df.index[-1].date()
+    end_date_limit = end_date_limit.replace(day=end_date_limit.day+1)
     figure = _build_sankey_figure(day_kwh_df, start_date_limit, end_date_limit)
+    end_date_limit.day += 1
 
     def create_tab(figure, tab):
         def update():
             nonlocal canvas
-            new_end_date = end_cal.get_date()
-            new_start_date = start_cal.get_date()
-            empty_test = day_kwh_df[new_start_date:new_end_date].empty
-            if empty_test:
-                tk.messagebox.showerror("Error", "The selected date range has no data.\nPlease select a date range between {start_date_limit} and {end_date_limit}")
-                return
-            if new_end_date > end_date_limit:
-                new_end_date = end_date_limit
-            if new_start_date < start_date_limit:
-                new_start_date = start_date_limit
-            start_cal.set_date(new_start_date)
-            end_cal.set_date(new_end_date)
             figure = _build_sankey_figure(
                 day_kwh_df,
-                new_start_date,
-                new_end_date,
+                *get_date_limits_from_calendar(
+                    start_cal, end_cal, start_date_limit,
+                    end_date_limit, day_kwh_df
+                )
             )
             canvas.get_tk_widget().destroy()
             canvas = FigureCanvasTkAgg(figure, tab)
@@ -1670,14 +1703,14 @@ def create_tkinter_date_range_frame(parent):
     date_frame = ttk.Frame(parent)
 
     # Start
-    ttk.Label(date_frame, text='Start Date').pack(padx=10, pady=10, side=tk.LEFT)
+    ttk.Label(date_frame, text='Start Date (inclusive)').pack(padx=10, pady=10, side=tk.LEFT)
     start_cal = DateEntry(
         date_frame, width=12, background='darkblue',
         foreground='white', borderwidth=2)
     start_cal.pack(padx=10, pady=10, side=tk.LEFT)
 
     # End
-    ttk.Label(date_frame, text='End Date').pack(padx=10, pady=10, side=tk.LEFT)
+    ttk.Label(date_frame, text='End Date (exclusive)').pack(padx=10, pady=10, side=tk.LEFT)
     end_cal = DateEntry(
         date_frame, width=12, background='darkblue',
         foreground='white', borderwidth=2)
@@ -1990,7 +2023,6 @@ def build_interactive_figure(total_datalog_df):
         fig.canvas.draw()
 
     def create_tab(figure, tab):
-        figure.tight_layout()
         from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
         import tkinter as tk
         canvas = FigureCanvasTkAgg(figure, tab)
