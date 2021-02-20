@@ -311,6 +311,18 @@ def get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date
     end_cal.set_date(new_end_date)
 
 
+def clear_figure_axes(figure):
+    for ax in figure.get_axes():
+        ax.lines.clear()
+
+
+def clear_figure_text(figure):
+    for ax in figure.get_axes():
+        for text in ax.texts:
+            # XXX How do I delete text?
+            text.set_text("")
+
+
 def build_consumption_profile(total_datalog_df):
     
     #temp1 = total_datalog_df[total_datalog_df.index.date >= start_date]
@@ -357,11 +369,8 @@ def build_consumption_profile(total_datalog_df):
         def update():
             nonlocal canvas
             new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
-            [ax] = figure.get_axes()
-            ax.lines.clear()
-            for text in ax.texts:
-                # XXX How do I delete text?
-                text.set_text("")
+            clear_figure_axes(figure)
+            clear_figure_text(figure)
             _plot_consumption_profile_axes(axes_pow_by_min_of_day, temp2, all_channels_labels, channel_number, new_start_date, new_end_date)
             canvas.draw()
 
