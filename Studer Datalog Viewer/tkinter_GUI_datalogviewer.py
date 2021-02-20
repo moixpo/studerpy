@@ -32,6 +32,7 @@ from PIL import ImageTk, Image
 
 import time
 import types
+import traceback
 #import datetime
 #from datetime import datetime
 
@@ -225,6 +226,7 @@ def load_and_show_graphs(controller):
         try:
             controller.frames[PageGraph].load_graphs_from_data(progress_updater)
         except Exception as exc:
+            print(traceback.format_exc())
             popuperror(f"Graph loading failed with '{exc}'")
             controller.show_frame(StartPage)
             return
