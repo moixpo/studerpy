@@ -12,6 +12,7 @@
 xt_graph_plotter_pandas.py
 """
 
+import warnings
 
 import matplotlib.pyplot as plt
 import matplotlib.sankey as sk
@@ -309,11 +310,12 @@ def get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date
         new_start_date = start_date_limit
     start_cal.set_date(new_start_date)
     end_cal.set_date(new_end_date)
+    return new_start_date, new_end_date
 
 
 def clear_figure_axes(figure):
     for ax in figure.get_axes():
-        ax.lines.clear()
+        ax.clear()
 
 
 def clear_figure_text(figure):
@@ -541,93 +543,111 @@ def build_total_battery_voltages_currents_figure(total_datalog_df):
 
 
 
-def build_batvoltage_profile(total_datalog_df, start_date = dt.date(2000, 1, 1), end_date = dt.date(2050, 12, 31)):
-    #for tests:
-    #start_date = dt.date(2018, 7, 1)
-    #end_date = dt.date(2018, 8, 30) 
-    
-    temp1 = total_datalog_df[total_datalog_df.index.date >= start_date]
-    temp2 = temp1[temp1.index.date <= end_date]
+def _plot_batvoltage_axes(axes_volt_by_min_of_day, total_datalog_df, channel_label, start_date=None, end_date=None):
+    total_datalog_df = total_datalog_df[start_date:end_date]
+    max_y_lim = total_datalog_df[channel_label].max()
+    min_y_lim = total_datalog_df[channel_label].min()
+    max_y_lim = ((max_y_lim-min_y_lim) * .05) + max_y_lim
+    axes_volt_by_min_of_day.plot(total_datalog_df['Time of day in minutes'],
+                      total_datalog_df[channel_label].values,
+                      marker='+',
+                      alpha=0.25,
+                      color='b',
+                      linestyle='None')
 
+
+
+    #faire la moyenne de tous les points qui sont à la même minute du jour:
+    mean_by_minute=np.zeros(1440)
+    x1=np.array(range(0,1440))
+    for k in x1:
+        tem_min_pow1=total_datalog_df[total_datalog_df['Time of day in minutes'].values == k]
+        mean_by_minute[k]=np.nanmean(tem_min_pow1[channel_label].values)
+
+
+    axes_volt_by_min_of_day.plot(x1/60, mean_by_minute,
+                      color='r',
+                      linestyle ='-',
+                      linewidth=2)
+
+    #faire la moyenne de tous les points qui sont à la même heure:
+    mean_by_hour=np.zeros(24)
+    x2=np.array(range(0,24))
+    for k in x2:
+        tem_min_pow2=total_datalog_df[total_datalog_df.index.hour == k]
+        mean_by_hour[k]=np.nanmean(tem_min_pow2[channel_label].values)
+
+
+    axes_volt_by_min_of_day.plot(x2, mean_by_hour,
+                      color='c',
+                      linestyle ='-',
+                      linewidth=2,
+                      drawstyle='steps-post')
+
+    #mean power:
+    #axes_volt_by_min_of_day.axhline(np.nanmean(total_datalog_df[channel_label].values), color='k', linestyle='dashed', linewidth=2)
+    axes_volt_by_min_of_day.axhline(mean_by_minute.mean(), color='k', linestyle='dashed', linewidth=2)
+    text_to_disp='Mean voltage= ' + str(round(mean_by_minute.mean(), 2)) + ' Vdc'
+    axes_volt_by_min_of_day.text(0.1,mean_by_minute.mean()+0.1,  text_to_disp, horizontalalignment='left',verticalalignment='bottom')
+    axes_volt_by_min_of_day.legend(["All points", "min mean profile" ,"hour mean profile"])
+    axes_volt_by_min_of_day.set_ylabel("Volage [Vdc]", fontsize=12)
+    axes_volt_by_min_of_day.set_xlabel("Time [h]", fontsize=12)
+    axes_volt_by_min_of_day.set_ylim((None, max_y_lim))
+    axes_volt_by_min_of_day.set_xlim(0,24)
+    axes_volt_by_min_of_day.set_title("Battery voltage profile by hour of the day", fontsize=12, weight="bold")
+    axes_volt_by_min_of_day.grid(True)
+
+
+def build_batvoltage_profile(total_datalog_df):
+    start_date_limit = total_datalog_df.index[0].date()
+    end_date_limit = total_datalog_df.index[-1].date()
+    end_date_limit = end_date_limit.replace(day=end_date_limit.day+1)
 
     all_channels_labels = list(total_datalog_df.columns)
     channel_number = [i for i, elem in enumerate(all_channels_labels) if 'System Ubat ref [Vdc]' in elem]
-   
+
     #channel_number=channel_number_Pout_conso_Tot
-    time_of_day_in_hours=list(temp2.index.hour+temp2.index.minute/60)
-    time_of_day_in_minutes=list(temp2.index.hour*60+temp2.index.minute)
-    
+    time_of_day_in_hours=list(total_datalog_df.index.hour+total_datalog_df.index.minute/60)
+    time_of_day_in_minutes=list(total_datalog_df.index.hour*60+total_datalog_df.index.minute)
+
     #add a channels to the dataframe with minutes of the day to be able to sort data on it: 
     #Create a new entry in the dataframe:
-    temp2['Time of day in minutes']=time_of_day_in_minutes
-        
-        
+    total_datalog_df['Time of day in minutes']=time_of_day_in_minutes
+
     fig_volt_by_min_of_day, axes_volt_by_min_of_day = plt.subplots(nrows=1, ncols=1, figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
-    
-    
     #maybe it is empty if there is no inverter:
     if channel_number:
-        
         channel_label=all_channels_labels[channel_number[0]]
-        
-        axes_volt_by_min_of_day.plot(time_of_day_in_hours,
-                          temp2[channel_label].values, 
-                          marker='+',
-                          alpha=0.25,
-                          color='b',
-                          linestyle='None')
-       
-        
-    
-        #faire la moyenne de tous les points qui sont à la même minute du jour:
-        mean_by_minute=np.zeros(1440)
-        x1=np.array(range(0,1440))
-        for k in x1:
-            tem_min_pow1=temp2[temp2['Time of day in minutes'].values == k]
-            mean_by_minute[k]=np.nanmean(tem_min_pow1[channel_label].values)
-            
-    
-        axes_volt_by_min_of_day.plot(x1/60, mean_by_minute,
-                          color='r',
-                          linestyle ='-',
-                          linewidth=2)
-    
-        #faire la moyenne de tous les points qui sont à la même heure:
-        mean_by_hour=np.zeros(24)
-        x2=np.array(range(0,24))
-        for k in x2:
-            tem_min_pow2=temp2[temp2.index.hour == k]
-            mean_by_hour[k]=np.nanmean(tem_min_pow2[channel_label].values)
-            
-    
-        axes_volt_by_min_of_day.plot(x2, mean_by_hour,
-                          color='c',
-                          linestyle ='-',
-                          linewidth=2,
-                          drawstyle='steps-post')
-        
-        #mean power:
-        #axes_volt_by_min_of_day.axhline(np.nanmean(total_datalog_df[channel_label].values), color='k', linestyle='dashed', linewidth=2)
-        axes_volt_by_min_of_day.axhline(mean_by_minute.mean(), color='k', linestyle='dashed', linewidth=2)
-        text_to_disp='Mean voltage= ' + str(round(mean_by_minute.mean(), 2)) + ' Vdc'
-        axes_volt_by_min_of_day.text(0.1,mean_by_minute.mean()+0.1,  text_to_disp, horizontalalignment='left',verticalalignment='bottom')
-        axes_volt_by_min_of_day.legend(["All points", "min mean profile" ,"hour mean profile"])
-        axes_volt_by_min_of_day.set_ylabel("Volage [Vdc]", fontsize=12)
-        axes_volt_by_min_of_day.set_xlabel("Time [h]", fontsize=12)
-        axes_volt_by_min_of_day.set_xlim(0,24)
-        axes_volt_by_min_of_day.set_title("Battery voltage profile by hour of the day", fontsize=12, weight="bold")
-        axes_volt_by_min_of_day.grid(True)
-        
-    
+        _plot_batvoltage_axes(axes_volt_by_min_of_day, total_datalog_df, channel_label, start_date_limit, end_date_limit)
     else:
         #axes_volt_by_min_of_day.text(0.0, 0.0, "There is no Studer inverter!", horizontalalignment='left',verticalalignment='bottom')
         axes_volt_by_min_of_day.set_title("There is no Studer inverter!", fontsize=12, weight="bold")
-        
-    
+
+
     fig_volt_by_min_of_day.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_volt_by_min_of_day.savefig("FigureExport/typical_voltage_profile_figure.png")
 
-    return fig_volt_by_min_of_day
+    def create_tab(figure, tab):
+        def update():
+            clear_figure_axes(figure)
+            new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
+            _plot_batvoltage_axes(axes_volt_by_min_of_day, total_datalog_df, channel_label, new_start_date, new_end_date)
+            figure.canvas.draw()
+        canvas = FigureCanvasTkAgg(figure, tab)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
+
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+
+
+    if channel_number:
+        return InteractiveFigure(fig_volt_by_min_of_day, create_tab)
+    else:
+        return fig_volt_by_min_of_day
 
 
 
@@ -1032,41 +1052,50 @@ def build_solar_energy_prod_figure(total_datalog_df,day_kwh_df,month_kwh_df):
     return fig_solar
 
 
+def _build_plot_genset_pie_ax(figure, total_datalog_df, chanel_number_for_transfer, start_date, end_date):
+    total_datalog_df = total_datalog_df[start_date:end_date]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ax_transfer = figure.add_subplot(111)
+    minutes_without_transfer = np.count_nonzero(
+        total_datalog_df.values[:, chanel_number_for_transfer] == 0.0
+    )
+    minutes_with_transfer = np.count_nonzero(
+        total_datalog_df.values[:, chanel_number_for_transfer] == 1.0
+    )
+
+    len(total_datalog_df.values[:, chanel_number_for_transfer])
+
+    labels = [
+        "On grid/genset: " + str(round(minutes_with_transfer / 60, 1)) + " hours",
+        "On inverter: " + str(round(minutes_without_transfer / 60, 1)) + " hours",
+    ]
+    ax_transfer.pie(
+        [minutes_with_transfer, minutes_without_transfer],
+        labels=labels,
+        shadow=True,
+        startangle=90,
+        autopct="%1.1f%%",
+        colors=[NX_PINK,NX_BLUE],
+        wedgeprops=dict(width=0.5),
+        explode=(0.1,0.1)
+    )
+    ax_transfer.set_title("Connection of the system to the grid/genset", fontsize=12, weight="bold")
+    return ax_transfer
 
 
 def build_genset_time_figure(total_datalog_df):
+    start_date_limit = total_datalog_df.index[0].date()
+    end_date_limit = total_datalog_df.index[-1].date()
+    end_date_limit = end_date_limit.replace(day=end_date_limit.day+1)
     all_channels_labels = list(total_datalog_df.columns)
-    
+
     fig_transfer = plt.figure()
-    ax_transfer = fig_transfer.add_subplot(111)
 
     #We'll check the transfer of phase 1 only (master)
     chanel_number_for_transfer = [ i for i, elem in enumerate(all_channels_labels) if "I3020 L1" in elem   ]
-    if chanel_number_for_transfer: 
-        minutes_without_transfer = np.count_nonzero(
-            total_datalog_df.values[:, chanel_number_for_transfer] == 0.0
-        )
-        minutes_with_transfer = np.count_nonzero(
-            total_datalog_df.values[:, chanel_number_for_transfer] == 1.0
-        )
-    
-        len(total_datalog_df.values[:, chanel_number_for_transfer])
-    
-        labels = [
-            "On grid/genset: " + str(round(minutes_with_transfer / 60, 1)) + " hours",
-            "On inverter: " + str(round(minutes_without_transfer / 60, 1)) + " hours",
-        ]
-        ax_transfer.pie(
-            [minutes_with_transfer, minutes_without_transfer],
-            labels=labels,
-            shadow=True,
-            startangle=90,
-            autopct="%1.1f%%",
-            colors=[NX_PINK,NX_BLUE],
-            wedgeprops=dict(width=0.5),
-            explode=(0.1,0.1)
-        )
-        
+    if chanel_number_for_transfer:
+        ax_transfer = _build_plot_genset_pie_ax(fig_transfer, total_datalog_df, chanel_number_for_transfer, start_date_limit, end_date_limit)
 
 #        plt.pie([minutes_with_transfer,minutes_without_transfer],
 #                labels=labels,
@@ -1076,14 +1105,31 @@ def build_genset_time_figure(total_datalog_df):
 #                wedgeprops=dict(width=0.5),
 #                colors=[GENSET_COLOR,NX_LIGHT_BROWN])
 
-        ax_transfer.set_title("Connection of the system to the grid/genset", fontsize=12, weight="bold")
-
     else:
+        ax_transfer = fig_transfer.add_subplot(111)
         ax_transfer.set_title("No inverter and no grid/genset in the system", fontsize=12, weight="bold")
 
     fig_transfer.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_transfer.savefig("FigureExport/genset_use_figure.png")
 
+    def create_tab(figure, tab):
+        def update():
+            clear_figure_axes(figure)
+            new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
+            ax = _build_plot_genset_pie_ax(figure, total_datalog_df, chanel_number_for_transfer, new_start_date, new_end_date)
+            figure.canvas.draw()
+
+        canvas = FigureCanvasTkAgg(figure, tab)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
+
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+    if chanel_number_for_transfer:
+        return InteractiveFigure(fig_transfer, create_tab)
     return fig_transfer
 
 
@@ -1676,7 +1722,6 @@ def build_sankey_figure(day_kwh_df):
     end_date_limit = day_kwh_df.index[-1].date()
     end_date_limit = end_date_limit.replace(day=end_date_limit.day+1)
     figure = _build_sankey_figure(day_kwh_df, start_date_limit, end_date_limit)
-    end_date_limit.day += 1
 
     def create_tab(figure, tab):
         def update():
