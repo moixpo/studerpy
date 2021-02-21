@@ -356,8 +356,7 @@ def build_consumption_profile(total_datalog_df):
     #temp1 = total_datalog_df[total_datalog_df.index.date >= start_date]
     #temp2 = temp1[temp1.index.date <= end_date]
     start_date_limit = total_datalog_df.index[0].date()
-    end_date_limit = total_datalog_df.index[-1].date()
-    end_date_limit = end_date_limit.replace(day=end_date_limit.day+1)
+    end_date_limit = total_datalog_df.index[-1].date() + dt.timedelta(days=1)
 
 
     all_channels_labels = list(total_datalog_df.columns)
@@ -626,8 +625,7 @@ def _plot_batvoltage_axes(axes_volt_by_min_of_day, total_datalog_df, channel_lab
 
 def build_batvoltage_profile(total_datalog_df):
     start_date_limit = total_datalog_df.index[0].date()
-    end_date_limit = total_datalog_df.index[-1].date()
-    end_date_limit = end_date_limit.replace(day=end_date_limit.day+1)
+    end_date_limit = total_datalog_df.index[-1].date() + dt.timedelta(days=1)
 
     all_channels_labels = list(total_datalog_df.columns)
     channel_number = [i for i, elem in enumerate(all_channels_labels) if 'System Ubat ref [Vdc]' in elem]
@@ -672,9 +670,7 @@ def build_batvoltage_profile(total_datalog_df):
 
     if channel_number:
         return InteractiveFigure(fig_volt_by_min_of_day, create_tab)
-    else:
-        return fig_volt_by_min_of_day
-
+    return fig_volt_by_min_of_day
 
 
 def build_battery_voltage_histogram_figure(total_datalog_df, quarters_mean_df):
@@ -1078,7 +1074,7 @@ def build_solar_energy_prod_figure(total_datalog_df,day_kwh_df,month_kwh_df):
     return fig_solar
 
 
-def _build_plot_genset_pie_ax(figure, total_datalog_df, chanel_number_for_transfer, start_date, end_date):
+def _build_plot_genset_pie_axes(figure, total_datalog_df, chanel_number_for_transfer, start_date, end_date):
     total_datalog_df = total_datalog_df[start_date:end_date]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -1112,8 +1108,7 @@ def _build_plot_genset_pie_ax(figure, total_datalog_df, chanel_number_for_transf
 
 def build_genset_time_figure(total_datalog_df):
     start_date_limit = total_datalog_df.index[0].date()
-    end_date_limit = total_datalog_df.index[-1].date()
-    end_date_limit = end_date_limit.replace(day=end_date_limit.day+1)
+    end_date_limit = total_datalog_df.index[-1].date() + dt.timedelta(days=1)
     all_channels_labels = list(total_datalog_df.columns)
 
     fig_transfer = plt.figure()
@@ -1121,7 +1116,7 @@ def build_genset_time_figure(total_datalog_df):
     #We'll check the transfer of phase 1 only (master)
     chanel_number_for_transfer = [ i for i, elem in enumerate(all_channels_labels) if "I3020 L1" in elem   ]
     if chanel_number_for_transfer:
-        ax_transfer = _build_plot_genset_pie_ax(fig_transfer, total_datalog_df, chanel_number_for_transfer, start_date_limit, end_date_limit)
+        ax_transfer = _build_plot_genset_pie_axes(fig_transfer, total_datalog_df, chanel_number_for_transfer, start_date_limit, end_date_limit)
 
 #        plt.pie([minutes_with_transfer,minutes_without_transfer],
 #                labels=labels,
@@ -1142,7 +1137,7 @@ def build_genset_time_figure(total_datalog_df):
         def update():
             clear_figure_axes(figure)
             new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
-            ax = _build_plot_genset_pie_ax(figure, total_datalog_df, chanel_number_for_transfer, new_start_date, new_end_date)
+            ax = _build_plot_genset_pie_axes(figure, total_datalog_df, chanel_number_for_transfer, new_start_date, new_end_date)
             figure.canvas.draw()
 
         canvas = FigureCanvasTkAgg(figure, tab)
@@ -1585,9 +1580,8 @@ def build_monthly_energy_sources_fraction_figure(month_kwh_df):
     return fig_ener
 
 
-
-def build_energyorigin_pie_figure(day_kwh_df):
-    
+def _plot_energyorigin_pie_axes(ax_origin, day_kwh_df, start_date=None, end_date=None):
+    day_kwh_df = day_kwh_df[start_date:end_date]
     all_channels_labels=list(day_kwh_df.columns)
     #quarters_channels_labels=list(quarters_mean_df.columns)
     
@@ -1604,44 +1598,61 @@ def build_energyorigin_pie_figure(day_kwh_df):
     #chanel_label_Pout_actif_tot=all_channels_labels[channel_number_Pout_actif_Tot[0]]
     chanel_label_Pin_actif_tot=all_channels_labels[channel_number_Pin_actif_Tot[0]]
     chanel_label_Psolar_tot=all_channels_labels[channels_number_PsolarTot[0]]
+    solar_energy=day_kwh_df[chanel_label_Psolar_tot].sum()   #TODO
+    grid_energy=day_kwh_df[chanel_label_Pin_actif_tot].sum()    #TODO
     
-    
+    labels = [
+        "SOLAR: " + str(round(solar_energy, 1)) + " kWh",
+        "Grid/genset: " + str(round(grid_energy, 1)) + " kWh",
+    ]
+    ax_origin.pie(
+        [solar_energy, grid_energy],
+        labels=labels,
+        shadow=True,
+        startangle=90,
+        autopct="%1.1f%%",
+        colors=[SOLAR_COLOR,GENSET_COLOR],
+        wedgeprops=dict(width=0.5),
+        explode=(0.1,0.1)
+    )
+    ax_origin.set_title("Origin of energy", fontsize=12, weight="bold")
+
+
+def build_energyorigin_pie_figure(day_kwh_df):
     fig_origin = plt.figure(figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
     ax_origin = fig_origin.add_subplot(111)
+    start_date_limit = day_kwh_df.index[0].date()
+    end_date_limit = day_kwh_df.index[-1].date() + dt.timedelta(days=1)
 
-    if channels_number_PsolarTot: 
-        
-                
+    all_channels_labels=list(day_kwh_df.columns)
+    channels_number_PsolarTot = [i for i, elem in enumerate(all_channels_labels) if 'Solar power (ALL) [kW]' in elem]
 
-        solar_energy=day_kwh_df[chanel_label_Psolar_tot].sum()   #TODO
-        grid_energy=day_kwh_df[chanel_label_Pin_actif_tot].sum()    #TODO
-        
-        labels = [
-            "SOLAR: " + str(round(solar_energy, 1)) + " kWh",
-            "Grid/genset: " + str(round(grid_energy, 1)) + " kWh",
-        ]
-        ax_origin.pie(
-            [solar_energy, grid_energy],
-            labels=labels,
-            shadow=True,
-            startangle=90,
-            autopct="%1.1f%%",
-            colors=[SOLAR_COLOR,GENSET_COLOR],
-            wedgeprops=dict(width=0.5),
-            explode=(0.1,0.1)
-        )
-        
-
-
-
-        ax_origin.set_title("Origin of energy", fontsize=12, weight="bold")
-
+    if channels_number_PsolarTot:
+        _plot_energyorigin_pie_axes(ax_origin, day_kwh_df)
     else:
         ax_origin.set_title("No solar in the system", fontsize=12, weight="bold")
 
     fig_origin.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_origin.savefig("FigureExport/origin_pie_figure.png")
 
+    def create_tab(figure, tab):
+        def update():
+            clear_figure_axes(figure)
+            new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, day_kwh_df)
+            _plot_energyorigin_pie_axes(ax_origin, day_kwh_df, new_start_date, new_end_date)
+            figure.canvas.draw()
+        canvas = FigureCanvasTkAgg(figure, tab)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
+
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+
+    if channels_number_PsolarTot:
+        return InteractiveFigure(fig_origin, create_tab)
     return fig_origin
 
 
@@ -1745,8 +1756,7 @@ def _build_sankey_figure(day_kwh_df, start_date, end_date):
 
 def build_sankey_figure(day_kwh_df):
     start_date_limit = day_kwh_df.index[0].date()
-    end_date_limit = day_kwh_df.index[-1].date()
-    end_date_limit = end_date_limit.replace(day=end_date_limit.day+1)
+    end_date_limit = day_kwh_df.index[-1].date() + dt.timedelta(days=1)
     figure = _build_sankey_figure(day_kwh_df, start_date_limit, end_date_limit)
 
     def create_tab(figure, tab):
@@ -1759,6 +1769,7 @@ def build_sankey_figure(day_kwh_df):
                     end_date_limit, day_kwh_df
                 )
             )
+            # XXX Remove destroy
             canvas.get_tk_widget().destroy()
             canvas = FigureCanvasTkAgg(figure, tab)
             canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
