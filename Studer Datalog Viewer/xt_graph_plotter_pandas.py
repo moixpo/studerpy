@@ -117,6 +117,62 @@ class DateRangeReference:
         return self.end_al.getdate()
 
 
+def get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, df):
+    """
+    Make sure the calendars do not reference dates outside the range
+    in the data by looking at `start_date_limit` and `end_date_limit`
+
+    Additionally prevent inverted date ranges
+
+    Args:
+        start_cal(tkcalendar.DateEntry): The tkinter DateEntry object referring to the
+            start of the date range
+        end_cal(tkcalendar.DateEntry): The tkinter DateEntry object referring to the
+            end of the date range
+        start_date_limit(dt.datetime.DateTime): The absolute start of the given data
+        end_date_limit(dt.datetime.DateTime): The absolute end of the given data
+        df(pd.DataFrame): The dataframe from which the calendar is limiting.
+            The dataframe should have a TimeSeries index
+    Returns:
+        A tuple containing the new datetimes to bound the graph by
+    """
+
+    new_end_date = end_cal.get_date()
+    new_start_date = start_cal.get_date()
+    empty_test = df[new_start_date:new_end_date].empty
+    if empty_test:
+        tk.messagebox.showerror("Error", f"The selected date range has no data.\nPlease select a date range between {start_date_limit} and {end_date_limit}")
+        raise Exception
+    if new_end_date > end_date_limit:
+        new_end_date = end_date_limit
+    if new_start_date < start_date_limit:
+        new_start_date = start_date_limit
+    start_cal.set_date(new_start_date)
+    end_cal.set_date(new_end_date)
+    return new_start_date, new_end_date
+
+
+def clear_figure_axes(figure):
+    """Clear a matplotlib figure's axes
+
+    This is used to clear previously stale
+    data on the figure without destroying
+    the figure or canvas
+    """
+    for ax in figure.get_axes():
+        ax.clear()
+
+
+def clear_figure_text(figure):
+    # Unsure if needed
+    for ax in figure.get_axes():
+        for text in ax.texts:
+            # XXX How do I delete text?
+            text.set_text("")
+
+
+
+
 def build_sys_power_figure(total_datalog_df, quarters_mean_df):
     
     all_channels_labels = list(total_datalog_df.columns)
@@ -248,17 +304,15 @@ def build_operating_mode_pies(total_datalog_df):
     return fig_mode
 
 
-def _plot_consumption_profile_axes(axes_pow_by_min_of_day, temp2, all_channels_labels, channel_number, start_date=None, end_date=None):
-    # XXX why am I loosing some values here?
-    old = temp2
+def _plot_consumption_profile_axes(axes_pow_by_min_of_day, total_datalog_df, all_channels_labels, channel_number, start_date=None, end_date=None):
     if start_date or end_date:
-        temp2 = temp2[start_date:end_date]
-    time_of_day_in_hours=list(temp2.index.hour+temp2.index.minute/60)
+        total_datalog_df = total_datalog_df[start_date:end_date]
+    time_of_day_in_hours=list(total_datalog_df.index.hour+total_datalog_df.index.minute/60)
     channel_label=all_channels_labels[channel_number[0]]
-    max_y_lim = temp2[channel_label].max()
+    max_y_lim = total_datalog_df[channel_label].max()
     max_y_lim = (max_y_lim * .05) + max_y_lim
     axes_pow_by_min_of_day.plot(time_of_day_in_hours,
-                      temp2[channel_label].values,
+                      total_datalog_df[channel_label].values,
                       marker='+',
                       alpha=0.25,
                       color='b',
@@ -268,7 +322,7 @@ def _plot_consumption_profile_axes(axes_pow_by_min_of_day, temp2, all_channels_l
     mean_by_minute=np.zeros(1440)
     x1=np.array(range(0,1440))
     for k in x1:
-        tem_min_pow1=temp2[temp2['Time of day in minutes'].values == k]
+        tem_min_pow1=total_datalog_df[total_datalog_df['Time of day in minutes'].values == k]
         mean_by_minute[k]=np.nanmean(tem_min_pow1[channel_label].values)
 
     axes_pow_by_min_of_day.plot(x1/60, mean_by_minute,
@@ -280,7 +334,7 @@ def _plot_consumption_profile_axes(axes_pow_by_min_of_day, temp2, all_channels_l
     mean_by_hour=np.zeros(24)
     x2=np.array(range(0,24))
     for k in x2:
-        tem_min_pow2=temp2[temp2.index.hour == k]
+        tem_min_pow2=total_datalog_df[total_datalog_df.index.hour == k]
         mean_by_hour[k]=np.nanmean(tem_min_pow2[channel_label].values)
 
     axes_pow_by_min_of_day.plot(x2, mean_by_hour,
@@ -297,34 +351,6 @@ def _plot_consumption_profile_axes(axes_pow_by_min_of_day, temp2, all_channels_l
     axes_pow_by_min_of_day.set_ylim((0, max_y_lim))
 
 
-def get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, df):
-    new_end_date = end_cal.get_date()
-    new_start_date = start_cal.get_date()
-    empty_test = df[new_start_date:new_end_date].empty
-    if empty_test:
-        tk.messagebox.showerror("Error", f"The selected date range has no data.\nPlease select a date range between {start_date_limit} and {end_date_limit}")
-        raise Exception
-    if new_end_date > end_date_limit:
-        new_end_date = end_date_limit
-    if new_start_date < start_date_limit:
-        new_start_date = start_date_limit
-    start_cal.set_date(new_start_date)
-    end_cal.set_date(new_end_date)
-    return new_start_date, new_end_date
-
-
-def clear_figure_axes(figure):
-    for ax in figure.get_axes():
-        ax.clear()
-
-
-def clear_figure_text(figure):
-    for ax in figure.get_axes():
-        for text in ax.texts:
-            # XXX How do I delete text?
-            text.set_text("")
-
-
 def build_consumption_profile(total_datalog_df):
     
     #temp1 = total_datalog_df[total_datalog_df.index.date >= start_date]
@@ -332,17 +358,16 @@ def build_consumption_profile(total_datalog_df):
     start_date_limit = total_datalog_df.index[0].date()
     end_date_limit = total_datalog_df.index[-1].date()
     end_date_limit = end_date_limit.replace(day=end_date_limit.day+1)
-    temp2 = total_datalog_df
 
 
     all_channels_labels = list(total_datalog_df.columns)
     channel_number = [i for i, elem in enumerate(all_channels_labels) if 'Pout Consumption power (ALL)' in elem]
     #channel_number=channel_number_Pout_conso_Tot
-    time_of_day_in_minutes=list(temp2.index.hour*60+temp2.index.minute)
+    time_of_day_in_minutes=list(total_datalog_df.index.hour*60+total_datalog_df.index.minute)
 
     #add a channels to the dataframe with minutes of the day to be able to sort data on it:
     #Create a new entry in the dataframe:
-    temp2['Time of day in minutes']=time_of_day_in_minutes
+    total_datalog_df['Time of day in minutes']=time_of_day_in_minutes
 
 
     fig_pow_by_min_of_day, axes_pow_by_min_of_day = plt.subplots(nrows=1, ncols=1, figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
@@ -350,7 +375,7 @@ def build_consumption_profile(total_datalog_df):
 
     #maybe it is empty if there is no inverter:
     if channel_number:
-        _plot_consumption_profile_axes(axes_pow_by_min_of_day, temp2, all_channels_labels, channel_number)
+        _plot_consumption_profile_axes(axes_pow_by_min_of_day, total_datalog_df, all_channels_labels, channel_number)
         axes_pow_by_min_of_day.legend(["All points", "min mean profile" ,"hour mean profile"])
         axes_pow_by_min_of_day.set_ylabel("Power [kW]", fontsize=12)
         axes_pow_by_min_of_day.set_xlabel("Time [h]", fontsize=12)
@@ -372,8 +397,9 @@ def build_consumption_profile(total_datalog_df):
             nonlocal canvas
             new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
             clear_figure_axes(figure)
+            # XXX test if i can delete
             clear_figure_text(figure)
-            _plot_consumption_profile_axes(axes_pow_by_min_of_day, temp2, all_channels_labels, channel_number, new_start_date, new_end_date)
+            _plot_consumption_profile_axes(axes_pow_by_min_of_day, total_datalog_df, all_channels_labels, channel_number, new_start_date, new_end_date)
             canvas.draw()
 
         canvas = FigureCanvasTkAgg(figure, tab)
