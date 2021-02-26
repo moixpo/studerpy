@@ -13,6 +13,7 @@ xt_graph_plotter_pandas.py
 """
 
 import warnings
+import math
 
 import matplotlib.pyplot as plt
 import matplotlib.sankey as sk
@@ -99,10 +100,11 @@ class InteractiveFigure:
 
 class DateRangeReference:
     """References to returning DateEntry objects"""
-    def __init__(self, start_cal, end_cal):
+    def __init__(self, start_cal, end_cal, frame=None):
         """Both arguments should be ttk.DateEntry objects"""
         self.start_cal = start_cal
         self.end_cal = end_cal
+        self.frame = frame
 
     def start_date(self):
         """
@@ -169,8 +171,6 @@ def clear_figure_text(figure):
         for text in ax.texts:
             # XXX How do I delete text?
             text.set_text("")
-
-
 
 
 def build_sys_power_figure(total_datalog_df, quarters_mean_df):
@@ -416,48 +416,133 @@ def build_consumption_profile(total_datalog_df):
     return fig_pow_by_min_of_day
 
 
-def build_power_histogram_figure(total_datalog_df, quarters_mean_df):
+def _plot_power_histogram_figure(fig_hist, axes_hist, total_datalog_df, quarters_mean_df, start_date=None, end_date=None, show_pin=True, show_pout=True, min_power_filter=0.1):
+
+    total_datalog_df = total_datalog_df[start_date:end_date]
+    quarters_mean_df = quarters_mean_df[start_date:end_date]
     all_channels_labels = list(total_datalog_df.columns)
-    quarters_channels_labels=list(quarters_mean_df.columns)
     channels_number_Pin_actif = [i for i, elem in enumerate(all_channels_labels) if "Pin power (ALL)" in elem]
     channels_number_Pout_actif = [i for i, elem in enumerate(all_channels_labels) if "Pout power (ALL)" in elem]
 
 
-    #take out the 0kW power (when genset/grid is not connected):    
+    #take out the 0kW power (when genset/grid is not connected):
     #chanel_number=channels_number_Pin_actif[0]
 
 
     channel_number=channels_number_Pin_actif[0]
     values_for_hist=quarters_mean_df.iloc[:,channel_number]
     #values_for_hist2=values_for_hist[values_for_hist > 0.1]
-    
+
     temp=quarters_mean_df.iloc[:,channel_number]
     #values_for_hist[values_for_hist > 0.1]
-    values_for_Pin_hist=temp[temp > 0.1]
+    values_for_Pin_hist=temp[temp > min_power_filter]
 
-    
+
     channel_number=channels_number_Pout_actif[0]
     values_for_Pout_hist=quarters_mean_df.iloc[:,channel_number]
 
-    fig_hist, axes_hist = plt.subplots(figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
-    
-    values_for_Pout_hist.hist( bins=50, alpha=0.5, label="Pout",density=True)
-    values_for_Pin_hist.hist( bins=50, alpha=0.5, label="Pin", density=True)
-    plt.axvline(values_for_Pout_hist.mean(), color='b', alpha=0.5, linestyle='dashed', linewidth=2)
-    plt.axvline(values_for_Pin_hist.mean(), color='r', alpha=0.5, linestyle='dashed', linewidth=2)
+    # The histogram color may incorrectly change if only one histogram is shown
+    # So manually pull colors from the cycler for each histogram
+    cycler = axes_hist._get_lines.prop_cycler
+    pout_color = next(cycler)['color']
+    pin_color = next(cycler)['color']
+    if show_pout:
+        values_for_Pout_hist.hist( bins=50, alpha=0.5, label="Pout",density=True, color=pout_color)
+        axes_hist.axvline(values_for_Pout_hist.mean(), color='r', alpha=0.5, linestyle='dashed', linewidth=2)
+    if show_pin:
+        values_for_Pin_hist.hist( bins=50, alpha=0.5, label="Pin", density=True, color=pin_color)
+        axes_hist.axvline(values_for_Pin_hist.mean(), color='b', alpha=0.5, linestyle='dashed', linewidth=2)
 
-    axes_hist.set_title("Histogram of Powers (>0 kW for Pin)", fontsize=12, weight="bold")
+    # Increments of .1
+    min_floor = math.floor(values_for_Pin_hist.min()*10) / 10
+    axes_hist.set_title(f"Histogram of Powers (>{min_floor} kW for Pin)", fontsize=12, weight="bold")
     axes_hist.set_xlabel("Power [kW]", fontsize=12)
     axes_hist.set_ylabel("Frequency density", fontsize=12)
     axes_hist.legend(loc='upper right')
 
-
     axes_hist.grid(True)
-    
+
     fig_hist.figimage(im, 10, 10, zorder=3, alpha=.2)
+    # Disallow the left axis to move to preserve stability
+    axes_hist.set_xlim(-0.25, None)
     fig_hist.savefig("FigureExport/histogramm_power_figure.png")
 
-    return fig_hist
+
+class _PowerHistogramInteractivityState:
+    """Maintain state for Tkinter variables from user controls"""
+    @classmethod
+    def from_values(cls, min_power_filter=0.1, show_pin=True, show_pout=True):
+        min_power_filter_var = tk.DoubleVar()
+        min_power_filter_var.set(min_power_filter)
+        show_pin_var = tk.BooleanVar()
+        show_pin_var.set(show_pin)
+        show_pout_var = tk.BooleanVar()
+        show_pout_var.set(show_pout)
+        return cls(min_power_filter_var, show_pin_var, show_pout_var)
+
+    def __init__(self, min_power_filter, show_pin, show_pout):
+        """Tkinter variables used to get the state of controls"""
+        self.min_power_filter = min_power_filter
+        self.show_pin = show_pin
+        self.show_pout = show_pout
+
+
+def build_power_histogram_figure(total_datalog_df, quarters_mean_df):
+    start_date_limit = quarters_mean_df.index[0].date()
+    end_date_limit = quarters_mean_df.index[-1].date() + dt.timedelta(days=1)
+    fig_hist, axes_hist = plt.subplots(figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
+    _plot_power_histogram_figure(fig_hist, axes_hist, total_datalog_df, quarters_mean_df)
+    interactivity_state = _PowerHistogramInteractivityState.from_values()
+
+    def create_tab(figure, tab):
+        top_frame = tk.Frame(tab)
+        bottom_frame = tk.Frame(tab)
+        def update(*args, **kwargs):
+            clear_figure_axes(figure)
+            new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
+            _plot_power_histogram_figure(
+                fig_hist, axes_hist, total_datalog_df,
+                quarters_mean_df, new_start_date, new_end_date,
+                show_pin=interactivity_state.show_pin.get(),
+                show_pout=interactivity_state.show_pout.get(),
+                min_power_filter=interactivity_state.min_power_filter.get()
+            )
+            figure.canvas.draw()
+        canvas = FigureCanvasTkAgg(figure, top_frame)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
+
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        controls_frame = ttk.Frame(top_frame)
+        ttk.Label(controls_frame, text='POut').pack(padx=10, pady=10, side=tk.TOP)
+        pout_checkbutton = tk.Checkbutton(controls_frame, command=update, variable=interactivity_state.show_pout)
+        pout_checkbutton.pack(side=tk.TOP)
+        ttk.Label(controls_frame, text='PIn').pack(padx=10, pady=10, side=tk.TOP)
+        pin_checkbutton = tk.Checkbutton(controls_frame, command=update, variable=interactivity_state.show_pin)
+        pin_checkbutton.pack(side=tk.TOP)
+        controls_frame.pack(side=tk.RIGHT, fill=tk.Y)
+        ttk.Label(date_range_reference.frame, text='Filter').pack(padx=10, pady=10, side=tk.LEFT)
+        slider = tk.Scale(
+            date_range_reference.frame,
+            from_=0,
+            to_=7,
+            orient=tk.HORIZONTAL,
+            resolution=0.1,
+            variable=interactivity_state.min_power_filter,
+            command=update,
+            length=300,
+        )
+        # Need to pack again for the slider
+        date_range_reference.frame.pack()
+        slider.pack(side=tk.LEFT)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        (date_range_reference.frame)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+        top_frame.pack(side=tk.TOP)
+        bottom_frame.pack(side=tk.BOTTOM)
+    return InteractiveFigure(fig_hist, create_tab)
 
 
 def build_bsp_voltage_current_figure(total_datalog_df):
@@ -1656,12 +1741,11 @@ def build_energyorigin_pie_figure(day_kwh_df):
     return fig_origin
 
 
-def _build_sankey_figure(day_kwh_df, start_date, end_date):
+def _build_sankey_figure(figure, ax_sankey, day_kwh_df, start_date, end_date):
     ################
     #Energy flux
     #https://flothesof.github.io/sankey-tutorial-matplotlib.html
     
-    figure, ax_sankey =plt.subplots(nrows=1, ncols=1,figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
     all_channels_labels=day_kwh_df.columns
 
     channels_number_PsolarTot       = [i for i, elem in enumerate(all_channels_labels) if 'Solar power (ALL) [kW]' in elem]
@@ -1743,9 +1827,10 @@ def _build_sankey_figure(day_kwh_df, start_date, end_date):
     #sk.Sankey(ax=ax_sankey, flows=[minutes_with_transfer, minutes_without_transfer, -(minutes_with_transfer+minutes_without_transfer)], labels=['First', 'Second', 'Third'], orientations=[ 0, 0, -1]).finish()
     #last_year=year_kwh_df.index.year[-1]
     #plt.title("Sankey energy flow diagram of system in the recorded data of : " +  str(last_year) + " (available files of this year)" )
-    plt.title(f"From {start_date} to {end_date}", fontsize=12)
+    ax_sankey.set_title(f"From {start_date} to {end_date}", fontsize=12)
     figure.suptitle("Sankey energy flow diagram of system for available data", fontsize=16)
 
+    # XXX how to I make it tight?
     plt.axis('tight')
     plt.axis('equal')
 
@@ -1757,22 +1842,22 @@ def _build_sankey_figure(day_kwh_df, start_date, end_date):
 def build_sankey_figure(day_kwh_df):
     start_date_limit = day_kwh_df.index[0].date()
     end_date_limit = day_kwh_df.index[-1].date() + dt.timedelta(days=1)
-    figure = _build_sankey_figure(day_kwh_df, start_date_limit, end_date_limit)
+    figure, ax_sankey =plt.subplots(nrows=1, ncols=1,figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
+    _build_sankey_figure(figure, ax_sankey, day_kwh_df, start_date_limit, end_date_limit)
 
     def create_tab(figure, tab):
         def update():
-            nonlocal canvas
-            figure = _build_sankey_figure(
+            clear_figure_axes(figure)
+            _build_sankey_figure(
+                figure,
+                ax_sankey,
                 day_kwh_df,
                 *get_date_limits_from_calendar(
                     start_cal, end_cal, start_date_limit,
                     end_date_limit, day_kwh_df
                 )
             )
-            # XXX Remove destroy
-            canvas.get_tk_widget().destroy()
-            canvas = FigureCanvasTkAgg(figure, tab)
-            canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+            figure.canvas.draw()
 
         canvas = FigureCanvasTkAgg(figure, tab)
         ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
@@ -1786,28 +1871,29 @@ def build_sankey_figure(day_kwh_df):
     return InteractiveFigure(figure, create_tab)
 
 
-def create_tkinter_date_range_frame(parent):
+def create_tkinter_date_range_frame(parent, side=tk.LEFT):
     """
     Create the interactive tkinter Date and Label objects
-    to enter dates
-    """
+    to enter dates """
     date_frame = ttk.Frame(parent)
 
     # Start
-    ttk.Label(date_frame, text='Start Date (inclusive)').pack(padx=10, pady=10, side=tk.LEFT)
+    ttk.Label(date_frame, text='Start Date (inclusive)').pack(padx=10, pady=10, side=side)
     start_cal = DateEntry(
         date_frame, width=12, background='darkblue',
-        foreground='white', borderwidth=2)
-    start_cal.pack(padx=10, pady=10, side=tk.LEFT)
+        foreground='white', borderwidth=2,
+        date_pattern="dd/mm/y" )
+    start_cal.pack(padx=10, pady=10, side=side)
 
     # End
-    ttk.Label(date_frame, text='End Date (exclusive)').pack(padx=10, pady=10, side=tk.LEFT)
+    ttk.Label(date_frame, text='End Date (exclusive)').pack(padx=10, pady=10, side=side)
     end_cal = DateEntry(
         date_frame, width=12, background='darkblue',
-        foreground='white', borderwidth=2)
-    end_cal.pack(padx=10, pady=10, side=tk.LEFT)
+        foreground='white', borderwidth=2,
+        date_pattern="dd/mm/y" )
+    end_cal.pack(padx=10, pady=10, side=side)
     date_frame.pack(side=tk.BOTTOM)
-    return DateRangeReference(start_cal, end_cal)
+    return DateRangeReference(start_cal, end_cal, frame=date_frame)
 
 
 def build_daily_energies_figure(day_kwh_df):
