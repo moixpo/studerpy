@@ -30,6 +30,7 @@ from scipy.interpolate import UnivariateSpline
 from matplotlib.widgets import Slider
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.patheffects as PathEffects
 import tkinter as tk
 from tkinter import ttk
 from tkcalendar import DateEntry
@@ -349,6 +350,12 @@ def _plot_consumption_profile_axes(axes_pow_by_min_of_day, total_datalog_df, all
     text_to_disp='Mean power= ' + str(round(mean_by_minute.mean(), 2)) + ' kW'
     axes_pow_by_min_of_day.text(0.1,mean_by_minute.mean()+0.1,  text_to_disp, horizontalalignment='left',verticalalignment='bottom')
     axes_pow_by_min_of_day.set_ylim((0, max_y_lim))
+    axes_pow_by_min_of_day.legend(["All points", "min mean profile" ,"hour mean profile"])
+    axes_pow_by_min_of_day.set_ylabel("Power [kW]", fontsize=12)
+    axes_pow_by_min_of_day.set_xlabel("Time [h]", fontsize=12)
+    axes_pow_by_min_of_day.set_xlim(0,24)
+    axes_pow_by_min_of_day.set_title("Consumption profile by hour of the day", fontsize=12, weight="bold")
+    axes_pow_by_min_of_day.grid(True)
 
 
 def build_consumption_profile(total_datalog_df):
@@ -375,12 +382,6 @@ def build_consumption_profile(total_datalog_df):
     #maybe it is empty if there is no inverter:
     if channel_number:
         _plot_consumption_profile_axes(axes_pow_by_min_of_day, total_datalog_df, all_channels_labels, channel_number)
-        axes_pow_by_min_of_day.legend(["All points", "min mean profile" ,"hour mean profile"])
-        axes_pow_by_min_of_day.set_ylabel("Power [kW]", fontsize=12)
-        axes_pow_by_min_of_day.set_xlabel("Time [h]", fontsize=12)
-        axes_pow_by_min_of_day.set_xlim(0,24)
-        axes_pow_by_min_of_day.set_title("Consumption profile by hour of the day", fontsize=12, weight="bold")
-        axes_pow_by_min_of_day.grid(True)
 
 
     else:
@@ -395,8 +396,6 @@ def build_consumption_profile(total_datalog_df):
         def update():
             new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
             clear_figure_axes(figure)
-            # XXX test if i can delete
-            clear_figure_text(figure)
             _plot_consumption_profile_axes(axes_pow_by_min_of_day, total_datalog_df, all_channels_labels, channel_number, new_start_date, new_end_date)
             canvas.draw()
 
@@ -416,6 +415,8 @@ def build_consumption_profile(total_datalog_df):
 
 
 def _plot_power_histogram_figure(fig_hist, axes_hist, total_datalog_df, quarters_mean_df, start_date=None, end_date=None, show_pin=True, show_pout=True, min_power_filter=0.1):
+    # Needed to select active figure
+    plt.figure(fig_hist.number)
 
     total_datalog_df = total_datalog_df[start_date:end_date]
     quarters_mean_df = quarters_mean_df[start_date:end_date]
@@ -519,7 +520,7 @@ def build_power_histogram_figure(total_datalog_df, quarters_mean_df):
         pin_checkbutton = tk.Checkbutton(controls_frame, command=update, variable=interactivity_state.show_pin)
         pin_checkbutton.pack(side=tk.TOP)
         controls_frame.pack(side=tk.RIGHT, fill=tk.Y)
-        ttk.Label(date_range_reference.frame, text='Filter').pack(padx=10, pady=10, side=tk.LEFT)
+        ttk.Label(date_range_reference.frame, text='Filter').pack(padx=(10, 0), side=tk.LEFT)
         slider = tk.Scale(
             date_range_reference.frame,
             from_=0,
@@ -529,6 +530,7 @@ def build_power_histogram_figure(total_datalog_df, quarters_mean_df):
             variable=interactivity_state.min_power_filter,
             command=update,
             length=300,
+            showvalue=0,
         )
         # Need to pack again for the slider
         date_range_reference.frame.pack()
@@ -1159,6 +1161,7 @@ def build_solar_energy_prod_figure(total_datalog_df,day_kwh_df,month_kwh_df):
 
 
 def _build_plot_genset_pie_axes(figure, total_datalog_df, chanel_number_for_transfer, start_date, end_date):
+    plt.figure(figure.number)
     total_datalog_df = total_datalog_df[start_date:end_date]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -1187,6 +1190,8 @@ def _build_plot_genset_pie_axes(figure, total_datalog_df, chanel_number_for_tran
         explode=(0.1,0.1)
     )
     ax_transfer.set_title("Connection of the system to the grid/genset", fontsize=12, weight="bold")
+    plt.axis('tight')
+    plt.axis('equal')
     return ax_transfer
 
 
@@ -1221,7 +1226,7 @@ def build_genset_time_figure(total_datalog_df):
         def update():
             clear_figure_axes(figure)
             new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
-            ax = _build_plot_genset_pie_axes(figure, total_datalog_df, chanel_number_for_transfer, new_start_date, new_end_date)
+            _build_plot_genset_pie_axes(figure, total_datalog_df, chanel_number_for_transfer, new_start_date, new_end_date)
             figure.canvas.draw()
 
         canvas = FigureCanvasTkAgg(figure, tab)
@@ -1699,6 +1704,11 @@ def _plot_energyorigin_pie_axes(ax_origin, day_kwh_df, start_date=None, end_date
         wedgeprops=dict(width=0.5),
         explode=(0.1,0.1)
     )
+    # Add border around percentage text to make more legible
+    for text in ax_origin.texts:
+        if '%' in text._text:
+            text.set_path_effects([PathEffects.withStroke(linewidth=3, foreground='w')])
+
     ax_origin.set_title("Origin of energy", fontsize=12, weight="bold")
 
 
@@ -1745,6 +1755,9 @@ def _build_sankey_figure(figure, ax_sankey, day_kwh_df, start_date, end_date):
     #Energy flux
     #https://flothesof.github.io/sankey-tutorial-matplotlib.html
     
+    # Select active figure for plt
+    plt.figure(figure.number)
+
     all_channels_labels=day_kwh_df.columns
 
     channels_number_PsolarTot       = [i for i, elem in enumerate(all_channels_labels) if 'Solar power (ALL) [kW]' in elem]
@@ -1829,7 +1842,6 @@ def _build_sankey_figure(figure, ax_sankey, day_kwh_df, start_date, end_date):
     ax_sankey.set_title(f"From {start_date} to {end_date}", fontsize=12)
     figure.suptitle("Sankey energy flow diagram of system for available data", fontsize=16)
 
-    # XXX how to I make it tight?
     plt.axis('tight')
     plt.axis('equal')
 
@@ -2313,7 +2325,7 @@ def main():
     
     build_daily_energies_figure(day_kwh_df)
     build_daily_energies_heatmap_figure(day_kwh_df)
-    build_sankey_figure(month_kwh_df,year_kwh_df)
+    build_sankey_figure(day_kwh_df)
 
     #build_monthly_energies_polar_figure(total_datalog_df,month_kwh_df)
     
