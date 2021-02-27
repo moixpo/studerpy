@@ -2179,59 +2179,6 @@ def build_monthly_energies_figure2(month_kwh_df):
 #    return fig_ener2
 
 
-
-
-def build_interactive_figure(total_datalog_df):
-    
-    #example from: https://blog.finxter.com/matplotlib-widgets-sliders/
-        # see also: https://matplotlib.org/3.1.1/gallery/widgets/slider_demo.html
-
-    # Initial x and y arrays
-    x = np.linspace(0, 10, 30)
-    y = np.sin(0.5*x)*np.sin(x*np.random.randn(30))
-    
-    # Spline interpolation
-    spline = UnivariateSpline(x, y, s = 6)
-    x_spline = np.linspace(0, 10, 1000)
-    y_spline = spline(x_spline)
-    
-    # Plotting
-    fig = plt.figure()
-    plt.subplots_adjust(bottom=0.25)
-    ax = fig.subplots()
-    p = ax.plot(x,y)
-    p, = ax.plot(x_spline, y_spline, 'g')
-    ax.set_title("Test of an interactive figure", fontsize=12, weight="bold")
-
-    # Updating the plot
-    def update(val):
-        spline = UnivariateSpline(x, y, s = float(val))
-        p.set_ydata(spline(x_spline))
-        # redrawing the figure
-        fig.canvas.draw()
-
-    def create_tab(figure, tab):
-        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-        import tkinter as tk
-        canvas = FigureCanvasTkAgg(figure, tab)
-        slider = tk.Scale(
-            tab,
-            from_=0,
-            to_=6,
-            orient=tk.HORIZONTAL,
-            resolution=0.1,
-            command=update,
-            label="Smoothing factor",
-        )
-
-        slider.pack(side=tk.BOTTOM, fill=tk.X, padx=50, pady=(0, 10))
-        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
-        toolbar = NavigationToolbar2Tk(canvas, tab)
-        toolbar.update()
-
-    return InteractiveFigure(fig, create_tab)
-
-
 def main():
     total_datalog_df = pd.read_pickle(xt_all_csv_pandas_import.MIN_DATAFRAME_NAME)
     #means
@@ -2329,7 +2276,6 @@ def main():
 
     #build_monthly_energies_polar_figure(total_datalog_df,month_kwh_df)
     
-    build_interactive_figure(total_datalog_df)
     plt.show()
 
 
