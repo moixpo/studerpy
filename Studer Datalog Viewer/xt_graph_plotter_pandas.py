@@ -393,7 +393,6 @@ def build_consumption_profile(total_datalog_df):
 
     def create_tab(figure, tab):
         def update():
-            nonlocal canvas
             new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
             clear_figure_axes(figure)
             # XXX test if i can delete

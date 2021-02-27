@@ -73,7 +73,6 @@ from xt_graph_plotter_pandas import (
     build_sankey_figure,
     build_daily_energies_figure,
     build_daily_energies_heatmap_figure,
-    build_interactive_figure,
     build_energyorigin_pie_figure,
     InteractiveFigure,
 )
@@ -516,7 +515,7 @@ class PageGraph(tk.Frame):
         tab_configuration_seq = (
             TabConfiguration(
                 build_consumption_profile,
-                (total_datalog_df, start_date, end_date, ),
+                (total_datalog_df,),
                 "Consumption INTERACT",
                 self.interactive_notebook,
             ),
@@ -534,13 +533,13 @@ class PageGraph(tk.Frame):
             ),
             TabConfiguration(
                 build_batvoltage_profile,
-                (total_datalog_df, start_date, end_date, ),
+                (total_datalog_df,),
                 "Voltage INTERACT",
                 self.interactive_notebook,
-            ),                              
+            ),
             TabConfiguration(
                 build_energyorigin_pie_figure,
-                (month_kwh_df,),
+                (day_kwh_df,),
                 "Origin Energy INTERACT",
                 self.interactive_notebook,
             ),
@@ -548,12 +547,6 @@ class PageGraph(tk.Frame):
                 build_genset_time_figure,
                 (total_datalog_df,),
                 "Gen/Grid INTERACT",
-                self.interactive_notebook,
-            ),            
-            TabConfiguration(
-                build_interactive_figure,
-                (total_datalog_df, ),
-                "TEST INTERACT",
                 self.interactive_notebook,
             ),
             TabConfiguration(
@@ -636,7 +629,7 @@ class PageGraph(tk.Frame):
             ), 
             TabConfiguration(
                 build_sankey_figure,
-                (month_kwh_df, year_kwh_df, ),
+                (day_kwh_df,),
                 "Sankey",
                 self.system_notebook,
             ),
@@ -746,7 +739,7 @@ class PageGraph(tk.Frame):
         canvas = FigureCanvasTkAgg(figure, tab)
         #canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
         #NavigationToolbar2Tk(canvas, tab)
-        
+
         #TODO: fix problem with toolbar hiden with figure size: not OK when resizing
         canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
 
