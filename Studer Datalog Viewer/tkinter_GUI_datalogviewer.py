@@ -730,6 +730,7 @@ class PageGraph(tk.Frame):
         if isinstance(figure, InteractiveFigure):
             figure.attach_to_tab(tab)
         else:
+            plt.close(figure)
             self.attach_figure_to_tab(figure, tab)
         self.tabs.append(tab)
 
