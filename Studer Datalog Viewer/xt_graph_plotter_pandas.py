@@ -26,7 +26,6 @@ from PIL import Image
 
 import xt_all_csv_pandas_import
 
-from scipy.interpolate import UnivariateSpline
 from matplotlib.widgets import Slider
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
