@@ -1,13 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
 
 block_cipher = None
 
+DEBUG = True
+
 # Data included in the output binary
+media_dir = "media"
+additional_directories = ["csvExport", "FigureExport"]
+
 datas = [
-    ("first_page_background.jpg", "."),
-    ("icone_albedo.ico", "."),
-	("offgrid.jpg", ".")
+    (os.path.join(media_dir, direntry.name), media_dir)
+    for direntry in os.scandir(media_dir)
 ]
+datas.extend((dir, dir) for dir in additional_directories)
+
+print(datas)
+
 
 def add_optional_dataframes():
     def _():
@@ -30,7 +39,7 @@ a = Analysis(['tkinter_GUI_datalogviewer.py'],
              #pathex=['C:\\Users\\b\\tkinterdatalogviewer\\Studer Datalog Viewer'],
              binaries=[],
              datas=datas,
-             hiddenimports=[],
+             hiddenimports=["tkcalendar", "babel.numbers"],
              hookspath=[],
              runtime_hooks=[],
              excludes=[],

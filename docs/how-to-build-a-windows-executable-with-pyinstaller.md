@@ -18,3 +18,7 @@ Run pyinstaller to build the executable
     pyinstaller tkinter_GUI_datalogviewer.spec 
 
 A directory with the executable should now be available in the `dist` directory.
+
+## Notes
+
+Any media in the `media/` directory will be added to the pyinstaller executable

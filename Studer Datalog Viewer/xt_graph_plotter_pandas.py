@@ -12,6 +12,8 @@
 xt_graph_plotter_pandas.py
 """
 
+import warnings
+import math
 
 import matplotlib.pyplot as plt
 import matplotlib.sankey as sk
@@ -24,8 +26,13 @@ from PIL import Image
 
 import xt_all_csv_pandas_import
 
-from scipy.interpolate import UnivariateSpline
 from matplotlib.widgets import Slider
+
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.patheffects as PathEffects
+import tkinter as tk
+from tkinter import ttk
+from tkcalendar import DateEntry
 
 #colorset
 PINK_COLOR='#FFB2C7'
@@ -73,6 +80,97 @@ WATERMARK_PICTURE='media/watermark_logo_empty.png'
 im = Image.open(WATERMARK_PICTURE)   
 
 
+class InteractiveFigure:
+    """Return an instance of this class when creating interactive objects"""
+    def __init__(self, figure, create_tab_callback):
+        """
+        Args:
+            figure: A matplotlib figure
+            create_tab_callback: A callback which creates the figure's tab canvas
+                create_tab_callback needs two arguments: The figure, and the
+                tab to attach to. The tab is supplied in attach_to_tab
+        """
+        self.figure = figure
+        self.create_tab_callback = create_tab_callback
+
+    def attach_to_tab(self, tab):
+        """Attach the interactive figure to tab"""
+        self.create_tab_callback(self.figure, tab)
+
+
+class DateRangeReference:
+    """References to returning DateEntry objects"""
+    def __init__(self, start_cal, end_cal, frame=None):
+        """Both arguments should be ttk.DateEntry objects"""
+        self.start_cal = start_cal
+        self.end_cal = end_cal
+        self.frame = frame
+
+    def start_date(self):
+        """
+        Returns: dt.datetime.Datetime
+        """
+        return self.start_cal.get_date()
+
+    def end_date(self):
+        """
+        Returns: dt.datetime.Datetime
+        """
+        return self.end_al.getdate()
+
+
+def get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, df):
+    """
+    Make sure the calendars do not reference dates outside the range
+    in the data by looking at `start_date_limit` and `end_date_limit`
+
+    Additionally prevent inverted date ranges
+
+    Args:
+        start_cal(tkcalendar.DateEntry): The tkinter DateEntry object referring to the
+            start of the date range
+        end_cal(tkcalendar.DateEntry): The tkinter DateEntry object referring to the
+            end of the date range
+        start_date_limit(dt.datetime.DateTime): The absolute start of the given data
+        end_date_limit(dt.datetime.DateTime): The absolute end of the given data
+        df(pd.DataFrame): The dataframe from which the calendar is limiting.
+            The dataframe should have a TimeSeries index
+    Returns:
+        A tuple containing the new datetimes to bound the graph by
+    """
+
+    new_end_date = end_cal.get_date()
+    new_start_date = start_cal.get_date()
+    empty_test = df[new_start_date:new_end_date].empty
+    if empty_test:
+        tk.messagebox.showerror("Error", f"The selected date range has no data.\nPlease select a date range between {start_date_limit} and {end_date_limit}")
+        raise Exception
+    if new_end_date > end_date_limit:
+        new_end_date = end_date_limit
+    if new_start_date < start_date_limit:
+        new_start_date = start_date_limit
+    start_cal.set_date(new_start_date)
+    end_cal.set_date(new_end_date)
+    return new_start_date, new_end_date
+
+
+def clear_figure_axes(figure):
+    """Clear a matplotlib figure's axes
+
+    This is used to clear previously stale
+    data on the figure without destroying
+    the figure or canvas
+    """
+    for ax in figure.get_axes():
+        ax.clear()
+
+
+def clear_figure_text(figure):
+    # Unsure if needed
+    for ax in figure.get_axes():
+        for text in ax.texts:
+            # XXX How do I delete text?
+            text.set_text("")
 
 
 def build_sys_power_figure(total_datalog_df, quarters_mean_df):
@@ -206,140 +304,245 @@ def build_operating_mode_pies(total_datalog_df):
     return fig_mode
 
 
-def build_consumption_profile(total_datalog_df, start_date = dt.date(2000, 1, 1), end_date = dt.date(2050, 12, 31)):
-    #for tests:
-    #start_date = dt.date(2018, 7, 1)
-    #end_date = dt.date(2018, 8, 30) 
+def _plot_consumption_profile_axes(axes_pow_by_min_of_day, total_datalog_df, all_channels_labels, channel_number, start_date=None, end_date=None):
+    if start_date or end_date:
+        total_datalog_df = total_datalog_df[start_date:end_date]
+    time_of_day_in_hours=list(total_datalog_df.index.hour+total_datalog_df.index.minute/60)
+    channel_label=all_channels_labels[channel_number[0]]
+    max_y_lim = total_datalog_df[channel_label].max()
+    max_y_lim = (max_y_lim * .05) + max_y_lim
+    axes_pow_by_min_of_day.plot(time_of_day_in_hours,
+                      total_datalog_df[channel_label].values,
+                      marker='+',
+                      alpha=0.25,
+                      color='b',
+                      linestyle='None')
+
+    #faire la moyenne de tous les points qui sont à la même minute du jour:
+    mean_by_minute=np.zeros(1440)
+    x1=np.array(range(0,1440))
+    for k in x1:
+        tem_min_pow1=total_datalog_df[total_datalog_df['Time of day in minutes'].values == k]
+        mean_by_minute[k]=np.nanmean(tem_min_pow1[channel_label].values)
+
+    axes_pow_by_min_of_day.plot(x1/60, mean_by_minute,
+                      color='r',
+                      linestyle ='-',
+                      linewidth=2)
+
+    #faire la moyenne de tous les points qui sont à la même heure:
+    mean_by_hour=np.zeros(24)
+    x2=np.array(range(0,24))
+    for k in x2:
+        tem_min_pow2=total_datalog_df[total_datalog_df.index.hour == k]
+        mean_by_hour[k]=np.nanmean(tem_min_pow2[channel_label].values)
+
+    axes_pow_by_min_of_day.plot(x2, mean_by_hour,
+                      color='c',
+                      linestyle ='-',
+                      linewidth=2,
+                      drawstyle='steps-post')
+
+    #mean power:
+    #axes_pow_by_min_of_day.axhline(np.nanmean(total_datalog_df[channel_label].values), color='k', linestyle='dashed', linewidth=2)
+    axes_pow_by_min_of_day.axhline(mean_by_minute.mean(), color='k', linestyle='dashed', linewidth=2)
+    text_to_disp='Mean power= ' + str(round(mean_by_minute.mean(), 2)) + ' kW'
+    axes_pow_by_min_of_day.text(0.1,mean_by_minute.mean()+0.1,  text_to_disp, horizontalalignment='left',verticalalignment='bottom')
+    axes_pow_by_min_of_day.set_ylim((0, max_y_lim))
+    axes_pow_by_min_of_day.legend(["All points", "min mean profile" ,"hour mean profile"])
+    axes_pow_by_min_of_day.set_ylabel("Power [kW]", fontsize=12)
+    axes_pow_by_min_of_day.set_xlabel("Time [h]", fontsize=12)
+    axes_pow_by_min_of_day.set_xlim(0,24)
+    axes_pow_by_min_of_day.set_title("Consumption profile by hour of the day", fontsize=12, weight="bold")
+    axes_pow_by_min_of_day.grid(True)
+
+
+def build_consumption_profile(total_datalog_df):
     
-    temp1 = total_datalog_df[total_datalog_df.index.date >= start_date]
-    temp2 = temp1[temp1.index.date <= end_date]
+    #temp1 = total_datalog_df[total_datalog_df.index.date >= start_date]
+    #temp2 = temp1[temp1.index.date <= end_date]
+    start_date_limit = total_datalog_df.index[0].date()
+    end_date_limit = total_datalog_df.index[-1].date() + dt.timedelta(days=1)
 
 
     all_channels_labels = list(total_datalog_df.columns)
     channel_number = [i for i, elem in enumerate(all_channels_labels) if 'Pout Consumption power (ALL)' in elem]
-   
     #channel_number=channel_number_Pout_conso_Tot
-    time_of_day_in_hours=list(temp2.index.hour+temp2.index.minute/60)
-    time_of_day_in_minutes=list(temp2.index.hour*60+temp2.index.minute)
-    
-    #add a channels to the dataframe with minutes of the day to be able to sort data on it: 
+    time_of_day_in_minutes=list(total_datalog_df.index.hour*60+total_datalog_df.index.minute)
+
+    #add a channels to the dataframe with minutes of the day to be able to sort data on it:
     #Create a new entry in the dataframe:
-    temp2['Time of day in minutes']=time_of_day_in_minutes
-        
-        
+    total_datalog_df['Time of day in minutes']=time_of_day_in_minutes
+
+
     fig_pow_by_min_of_day, axes_pow_by_min_of_day = plt.subplots(nrows=1, ncols=1, figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
-    
-    
+
+
     #maybe it is empty if there is no inverter:
     if channel_number:
-        
-        channel_label=all_channels_labels[channel_number[0]]
-        
-        axes_pow_by_min_of_day.plot(time_of_day_in_hours,
-                          temp2[channel_label].values, 
-                          marker='+',
-                          alpha=0.25,
-                          color='b',
-                          linestyle='None')
-       
-        
-    
-        #faire la moyenne de tous les points qui sont à la même minute du jour:
-        mean_by_minute=np.zeros(1440)
-        x1=np.array(range(0,1440))
-        for k in x1:
-            tem_min_pow1=temp2[temp2['Time of day in minutes'].values == k]
-            mean_by_minute[k]=np.nanmean(tem_min_pow1[channel_label].values)
-            
-    
-        axes_pow_by_min_of_day.plot(x1/60, mean_by_minute,
-                          color='r',
-                          linestyle ='-',
-                          linewidth=2)
-    
-        #faire la moyenne de tous les points qui sont à la même heure:
-        mean_by_hour=np.zeros(24)
-        x2=np.array(range(0,24))
-        for k in x2:
-            tem_min_pow2=temp2[temp2.index.hour == k]
-            mean_by_hour[k]=np.nanmean(tem_min_pow2[channel_label].values)
-            
-    
-        axes_pow_by_min_of_day.plot(x2, mean_by_hour,
-                          color='c',
-                          linestyle ='-',
-                          linewidth=2,
-                          drawstyle='steps-post')
-        
-        #mean power:
-        #axes_pow_by_min_of_day.axhline(np.nanmean(total_datalog_df[channel_label].values), color='k', linestyle='dashed', linewidth=2)
-        axes_pow_by_min_of_day.axhline(mean_by_minute.mean(), color='k', linestyle='dashed', linewidth=2)
-        text_to_disp='Mean power= ' + str(round(mean_by_minute.mean(), 2)) + ' kW'
-        axes_pow_by_min_of_day.text(0.1,mean_by_minute.mean()+0.1,  text_to_disp, horizontalalignment='left',verticalalignment='bottom')
-        axes_pow_by_min_of_day.legend(["All points", "min mean profile" ,"hour mean profile"])
-        axes_pow_by_min_of_day.set_ylabel("Power [kW]", fontsize=12)
-        axes_pow_by_min_of_day.set_xlabel("Time [h]", fontsize=12)
-        axes_pow_by_min_of_day.set_xlim(0,24)
-        axes_pow_by_min_of_day.set_title("Consumption profile by hour of the day", fontsize=12, weight="bold")
-        axes_pow_by_min_of_day.grid(True)
-        
-    
+        _plot_consumption_profile_axes(axes_pow_by_min_of_day, total_datalog_df, all_channels_labels, channel_number)
+
+
     else:
         #axes_pow_by_min_of_day.text(0.0, 0.0, "There is no Studer inverter!", horizontalalignment='left',verticalalignment='bottom')
         axes_pow_by_min_of_day.set_title("There is no Studer inverter!", fontsize=12, weight="bold")
-        
-    
+
+
     fig_pow_by_min_of_day.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_pow_by_min_of_day.savefig("FigureExport/typical_power_profile_figure.png")
 
+    def create_tab(figure, tab):
+        def update():
+            new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
+            clear_figure_axes(figure)
+            _plot_consumption_profile_axes(axes_pow_by_min_of_day, total_datalog_df, all_channels_labels, channel_number, new_start_date, new_end_date)
+            canvas.draw()
+
+        canvas = FigureCanvasTkAgg(figure, tab)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
+
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+
+    if channel_number:
+        return InteractiveFigure(fig_pow_by_min_of_day, create_tab)
     return fig_pow_by_min_of_day
 
 
+def _plot_power_histogram_figure(fig_hist, axes_hist, total_datalog_df, quarters_mean_df, start_date=None, end_date=None, show_pin=True, show_pout=True, min_power_filter=0.1):
+    # Needed to select active figure
+    plt.figure(fig_hist.number)
 
-
-
-def build_power_histogram_figure(total_datalog_df, quarters_mean_df):
+    total_datalog_df = total_datalog_df[start_date:end_date]
+    quarters_mean_df = quarters_mean_df[start_date:end_date]
     all_channels_labels = list(total_datalog_df.columns)
-    quarters_channels_labels=list(quarters_mean_df.columns)
     channels_number_Pin_actif = [i for i, elem in enumerate(all_channels_labels) if "Pin power (ALL)" in elem]
     channels_number_Pout_actif = [i for i, elem in enumerate(all_channels_labels) if "Pout power (ALL)" in elem]
 
 
-    #take out the 0kW power (when genset/grid is not connected):    
+    #take out the 0kW power (when genset/grid is not connected):
     #chanel_number=channels_number_Pin_actif[0]
 
 
     channel_number=channels_number_Pin_actif[0]
     values_for_hist=quarters_mean_df.iloc[:,channel_number]
     #values_for_hist2=values_for_hist[values_for_hist > 0.1]
-    
+
     temp=quarters_mean_df.iloc[:,channel_number]
     #values_for_hist[values_for_hist > 0.1]
-    values_for_Pin_hist=temp[temp > 0.1]
+    values_for_Pin_hist=temp[temp > min_power_filter]
 
-    
+
     channel_number=channels_number_Pout_actif[0]
     values_for_Pout_hist=quarters_mean_df.iloc[:,channel_number]
 
-    fig_hist, axes_hist = plt.subplots(figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
-    
-    values_for_Pout_hist.hist( bins=50, alpha=0.5, label="Pout",density=True)
-    values_for_Pin_hist.hist( bins=50, alpha=0.5, label="Pin", density=True)
-    plt.axvline(values_for_Pout_hist.mean(), color='b', alpha=0.5, linestyle='dashed', linewidth=2)
-    plt.axvline(values_for_Pin_hist.mean(), color='r', alpha=0.5, linestyle='dashed', linewidth=2)
+    # The histogram color may incorrectly change if only one histogram is shown
+    # So manually pull colors from the cycler for each histogram
+    cycler = axes_hist._get_lines.prop_cycler
+    pout_color = next(cycler)['color']
+    pin_color = next(cycler)['color']
+    if show_pout:
+        values_for_Pout_hist.hist( bins=50, alpha=0.5, label="Pout",density=True, color=pout_color)
+        axes_hist.axvline(values_for_Pout_hist.mean(), color='r', alpha=0.5, linestyle='dashed', linewidth=2)
+    if show_pin:
+        values_for_Pin_hist.hist( bins=50, alpha=0.5, label="Pin", density=True, color=pin_color)
+        axes_hist.axvline(values_for_Pin_hist.mean(), color='b', alpha=0.5, linestyle='dashed', linewidth=2)
 
-    axes_hist.set_title("Histogram of Powers (>0 kW for Pin)", fontsize=12, weight="bold")
+    # Increments of .1
+    min_floor = math.floor(values_for_Pin_hist.min()*10) / 10
+    axes_hist.set_title(f"Histogram of Powers (>{min_floor} kW for Pin)", fontsize=12, weight="bold")
     axes_hist.set_xlabel("Power [kW]", fontsize=12)
     axes_hist.set_ylabel("Frequency density", fontsize=12)
     axes_hist.legend(loc='upper right')
 
-
     axes_hist.grid(True)
-    
+
     fig_hist.figimage(im, 10, 10, zorder=3, alpha=.2)
+    # Disallow the left axis to move to preserve stability
+    axes_hist.set_xlim(-0.25, None)
     fig_hist.savefig("FigureExport/histogramm_power_figure.png")
 
-    return fig_hist
+
+class _PowerHistogramInteractivityState:
+    """Maintain state for Tkinter variables from user controls"""
+    @classmethod
+    def from_values(cls, min_power_filter=0.1, show_pin=True, show_pout=True):
+        min_power_filter_var = tk.DoubleVar()
+        min_power_filter_var.set(min_power_filter)
+        show_pin_var = tk.BooleanVar()
+        show_pin_var.set(show_pin)
+        show_pout_var = tk.BooleanVar()
+        show_pout_var.set(show_pout)
+        return cls(min_power_filter_var, show_pin_var, show_pout_var)
+
+    def __init__(self, min_power_filter, show_pin, show_pout):
+        """Tkinter variables used to get the state of controls"""
+        self.min_power_filter = min_power_filter
+        self.show_pin = show_pin
+        self.show_pout = show_pout
+
+
+def build_power_histogram_figure(total_datalog_df, quarters_mean_df):
+    start_date_limit = quarters_mean_df.index[0].date()
+    end_date_limit = quarters_mean_df.index[-1].date() + dt.timedelta(days=1)
+    fig_hist, axes_hist = plt.subplots(figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
+    _plot_power_histogram_figure(fig_hist, axes_hist, total_datalog_df, quarters_mean_df)
+    interactivity_state = _PowerHistogramInteractivityState.from_values()
+
+    def create_tab(figure, tab):
+        top_frame = tk.Frame(tab)
+        bottom_frame = tk.Frame(tab)
+        def update(*args, **kwargs):
+            clear_figure_axes(figure)
+            new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
+            _plot_power_histogram_figure(
+                fig_hist, axes_hist, total_datalog_df,
+                quarters_mean_df, new_start_date, new_end_date,
+                show_pin=interactivity_state.show_pin.get(),
+                show_pout=interactivity_state.show_pout.get(),
+                min_power_filter=interactivity_state.min_power_filter.get()
+            )
+            figure.canvas.draw()
+        canvas = FigureCanvasTkAgg(figure, top_frame)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
+
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        controls_frame = ttk.Frame(top_frame)
+        ttk.Label(controls_frame, text='POut').pack(padx=10, pady=10, side=tk.TOP)
+        pout_checkbutton = tk.Checkbutton(controls_frame, command=update, variable=interactivity_state.show_pout)
+        pout_checkbutton.pack(side=tk.TOP)
+        ttk.Label(controls_frame, text='PIn').pack(padx=10, pady=10, side=tk.TOP)
+        pin_checkbutton = tk.Checkbutton(controls_frame, command=update, variable=interactivity_state.show_pin)
+        pin_checkbutton.pack(side=tk.TOP)
+        controls_frame.pack(side=tk.RIGHT, fill=tk.Y)
+        ttk.Label(date_range_reference.frame, text='Filter').pack(padx=(10, 0), side=tk.LEFT)
+        slider = tk.Scale(
+            date_range_reference.frame,
+            from_=0,
+            to_=7,
+            orient=tk.HORIZONTAL,
+            resolution=0.1,
+            variable=interactivity_state.min_power_filter,
+            command=update,
+            length=300,
+            showvalue=0,
+        )
+        # Need to pack again for the slider
+        date_range_reference.frame.pack()
+        slider.pack(side=tk.LEFT)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        (date_range_reference.frame)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+        top_frame.pack(side=tk.TOP)
+        bottom_frame.pack(side=tk.BOTTOM)
+    return InteractiveFigure(fig_hist, create_tab)
 
 
 def build_bsp_voltage_current_figure(total_datalog_df):
@@ -450,94 +653,109 @@ def build_total_battery_voltages_currents_figure(total_datalog_df):
 
 
 
-def build_batvoltage_profile(total_datalog_df, start_date = dt.date(2000, 1, 1), end_date = dt.date(2050, 12, 31)):
-    #for tests:
-    #start_date = dt.date(2018, 7, 1)
-    #end_date = dt.date(2018, 8, 30) 
-    
-    temp1 = total_datalog_df[total_datalog_df.index.date >= start_date]
-    temp2 = temp1[temp1.index.date <= end_date]
+def _plot_batvoltage_axes(axes_volt_by_min_of_day, total_datalog_df, channel_label, start_date=None, end_date=None):
+    total_datalog_df = total_datalog_df[start_date:end_date]
+    max_y_lim = total_datalog_df[channel_label].max()
+    min_y_lim = total_datalog_df[channel_label].min()
+    max_y_lim = ((max_y_lim-min_y_lim) * .05) + max_y_lim
+    axes_volt_by_min_of_day.plot(total_datalog_df['Time of day in minutes'],
+                      total_datalog_df[channel_label].values,
+                      marker='+',
+                      alpha=0.25,
+                      color='b',
+                      linestyle='None')
 
+
+
+    #faire la moyenne de tous les points qui sont à la même minute du jour:
+    mean_by_minute=np.zeros(1440)
+    x1=np.array(range(0,1440))
+    for k in x1:
+        tem_min_pow1=total_datalog_df[total_datalog_df['Time of day in minutes'].values == k]
+        mean_by_minute[k]=np.nanmean(tem_min_pow1[channel_label].values)
+
+
+    axes_volt_by_min_of_day.plot(x1/60, mean_by_minute,
+                      color='r',
+                      linestyle ='-',
+                      linewidth=2)
+
+    #faire la moyenne de tous les points qui sont à la même heure:
+    mean_by_hour=np.zeros(24)
+    x2=np.array(range(0,24))
+    for k in x2:
+        tem_min_pow2=total_datalog_df[total_datalog_df.index.hour == k]
+        mean_by_hour[k]=np.nanmean(tem_min_pow2[channel_label].values)
+
+
+    axes_volt_by_min_of_day.plot(x2, mean_by_hour,
+                      color='c',
+                      linestyle ='-',
+                      linewidth=2,
+                      drawstyle='steps-post')
+
+    #mean power:
+    #axes_volt_by_min_of_day.axhline(np.nanmean(total_datalog_df[channel_label].values), color='k', linestyle='dashed', linewidth=2)
+    axes_volt_by_min_of_day.axhline(mean_by_minute.mean(), color='k', linestyle='dashed', linewidth=2)
+    text_to_disp='Mean voltage= ' + str(round(mean_by_minute.mean(), 2)) + ' Vdc'
+    axes_volt_by_min_of_day.text(0.1,mean_by_minute.mean()+0.1,  text_to_disp, horizontalalignment='left',verticalalignment='bottom')
+    axes_volt_by_min_of_day.legend(["All points", "min mean profile" ,"hour mean profile"])
+    axes_volt_by_min_of_day.set_ylabel("Volage [Vdc]", fontsize=12)
+    axes_volt_by_min_of_day.set_xlabel("Time [h]", fontsize=12)
+    axes_volt_by_min_of_day.set_ylim((None, max_y_lim))
+    axes_volt_by_min_of_day.set_xlim(0,24)
+    axes_volt_by_min_of_day.set_title("Battery voltage profile by hour of the day", fontsize=12, weight="bold")
+    axes_volt_by_min_of_day.grid(True)
+
+
+def build_batvoltage_profile(total_datalog_df):
+    start_date_limit = total_datalog_df.index[0].date()
+    end_date_limit = total_datalog_df.index[-1].date() + dt.timedelta(days=1)
 
     all_channels_labels = list(total_datalog_df.columns)
     channel_number = [i for i, elem in enumerate(all_channels_labels) if 'System Ubat ref [Vdc]' in elem]
-   
+
     #channel_number=channel_number_Pout_conso_Tot
-    time_of_day_in_hours=list(temp2.index.hour+temp2.index.minute/60)
-    time_of_day_in_minutes=list(temp2.index.hour*60+temp2.index.minute)
-    
+    time_of_day_in_hours=list(total_datalog_df.index.hour+total_datalog_df.index.minute/60)
+    time_of_day_in_minutes=list(total_datalog_df.index.hour*60+total_datalog_df.index.minute)
+
     #add a channels to the dataframe with minutes of the day to be able to sort data on it: 
     #Create a new entry in the dataframe:
-    temp2['Time of day in minutes']=time_of_day_in_minutes
-        
-        
+    total_datalog_df['Time of day in minutes']=time_of_day_in_minutes
+
     fig_volt_by_min_of_day, axes_volt_by_min_of_day = plt.subplots(nrows=1, ncols=1, figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
-    
-    
     #maybe it is empty if there is no inverter:
     if channel_number:
-        
         channel_label=all_channels_labels[channel_number[0]]
-        
-        axes_volt_by_min_of_day.plot(time_of_day_in_hours,
-                          temp2[channel_label].values, 
-                          marker='+',
-                          alpha=0.25,
-                          color='b',
-                          linestyle='None')
-       
-        
-    
-        #faire la moyenne de tous les points qui sont à la même minute du jour:
-        mean_by_minute=np.zeros(1440)
-        x1=np.array(range(0,1440))
-        for k in x1:
-            tem_min_pow1=temp2[temp2['Time of day in minutes'].values == k]
-            mean_by_minute[k]=np.nanmean(tem_min_pow1[channel_label].values)
-            
-    
-        axes_volt_by_min_of_day.plot(x1/60, mean_by_minute,
-                          color='r',
-                          linestyle ='-',
-                          linewidth=2)
-    
-        #faire la moyenne de tous les points qui sont à la même heure:
-        mean_by_hour=np.zeros(24)
-        x2=np.array(range(0,24))
-        for k in x2:
-            tem_min_pow2=temp2[temp2.index.hour == k]
-            mean_by_hour[k]=np.nanmean(tem_min_pow2[channel_label].values)
-            
-    
-        axes_volt_by_min_of_day.plot(x2, mean_by_hour,
-                          color='c',
-                          linestyle ='-',
-                          linewidth=2,
-                          drawstyle='steps-post')
-        
-        #mean power:
-        #axes_volt_by_min_of_day.axhline(np.nanmean(total_datalog_df[channel_label].values), color='k', linestyle='dashed', linewidth=2)
-        axes_volt_by_min_of_day.axhline(mean_by_minute.mean(), color='k', linestyle='dashed', linewidth=2)
-        text_to_disp='Mean voltage= ' + str(round(mean_by_minute.mean(), 2)) + ' Vdc'
-        axes_volt_by_min_of_day.text(0.1,mean_by_minute.mean()+0.1,  text_to_disp, horizontalalignment='left',verticalalignment='bottom')
-        axes_volt_by_min_of_day.legend(["All points", "min mean profile" ,"hour mean profile"])
-        axes_volt_by_min_of_day.set_ylabel("Volage [Vdc]", fontsize=12)
-        axes_volt_by_min_of_day.set_xlabel("Time [h]", fontsize=12)
-        axes_volt_by_min_of_day.set_xlim(0,24)
-        axes_volt_by_min_of_day.set_title("Battery voltage profile by hour of the day", fontsize=12, weight="bold")
-        axes_volt_by_min_of_day.grid(True)
-        
-    
+        _plot_batvoltage_axes(axes_volt_by_min_of_day, total_datalog_df, channel_label, start_date_limit, end_date_limit)
     else:
         #axes_volt_by_min_of_day.text(0.0, 0.0, "There is no Studer inverter!", horizontalalignment='left',verticalalignment='bottom')
         axes_volt_by_min_of_day.set_title("There is no Studer inverter!", fontsize=12, weight="bold")
-        
-    
+
+
     fig_volt_by_min_of_day.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_volt_by_min_of_day.savefig("FigureExport/typical_voltage_profile_figure.png")
 
-    return fig_volt_by_min_of_day
+    def create_tab(figure, tab):
+        def update():
+            clear_figure_axes(figure)
+            new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
+            _plot_batvoltage_axes(axes_volt_by_min_of_day, total_datalog_df, channel_label, new_start_date, new_end_date)
+            figure.canvas.draw()
+        canvas = FigureCanvasTkAgg(figure, tab)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
 
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+
+
+    if channel_number:
+        return InteractiveFigure(fig_volt_by_min_of_day, create_tab)
+    return fig_volt_by_min_of_day
 
 
 def build_battery_voltage_histogram_figure(total_datalog_df, quarters_mean_df):
@@ -941,41 +1159,52 @@ def build_solar_energy_prod_figure(total_datalog_df,day_kwh_df,month_kwh_df):
     return fig_solar
 
 
+def _build_plot_genset_pie_axes(figure, total_datalog_df, chanel_number_for_transfer, start_date, end_date):
+    plt.figure(figure.number)
+    total_datalog_df = total_datalog_df[start_date:end_date]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ax_transfer = figure.add_subplot(111)
+    minutes_without_transfer = np.count_nonzero(
+        total_datalog_df.values[:, chanel_number_for_transfer] == 0.0
+    )
+    minutes_with_transfer = np.count_nonzero(
+        total_datalog_df.values[:, chanel_number_for_transfer] == 1.0
+    )
+
+    len(total_datalog_df.values[:, chanel_number_for_transfer])
+
+    labels = [
+        "On grid/genset: " + str(round(minutes_with_transfer / 60, 1)) + " hours",
+        "On inverter: " + str(round(minutes_without_transfer / 60, 1)) + " hours",
+    ]
+    ax_transfer.pie(
+        [minutes_with_transfer, minutes_without_transfer],
+        labels=labels,
+        shadow=True,
+        startangle=90,
+        autopct="%1.1f%%",
+        colors=[NX_PINK,NX_BLUE],
+        wedgeprops=dict(width=0.5),
+        explode=(0.1,0.1)
+    )
+    ax_transfer.set_title("Connection of the system to the grid/genset", fontsize=12, weight="bold")
+    plt.axis('tight')
+    plt.axis('equal')
+    return ax_transfer
 
 
 def build_genset_time_figure(total_datalog_df):
+    start_date_limit = total_datalog_df.index[0].date()
+    end_date_limit = total_datalog_df.index[-1].date() + dt.timedelta(days=1)
     all_channels_labels = list(total_datalog_df.columns)
-    
+
     fig_transfer = plt.figure()
-    ax_transfer = fig_transfer.add_subplot(111)
 
     #We'll check the transfer of phase 1 only (master)
     chanel_number_for_transfer = [ i for i, elem in enumerate(all_channels_labels) if "I3020 L1" in elem   ]
-    if chanel_number_for_transfer: 
-        minutes_without_transfer = np.count_nonzero(
-            total_datalog_df.values[:, chanel_number_for_transfer] == 0.0
-        )
-        minutes_with_transfer = np.count_nonzero(
-            total_datalog_df.values[:, chanel_number_for_transfer] == 1.0
-        )
-    
-        len(total_datalog_df.values[:, chanel_number_for_transfer])
-    
-        labels = [
-            "On grid/genset: " + str(round(minutes_with_transfer / 60, 1)) + " hours",
-            "On inverter: " + str(round(minutes_without_transfer / 60, 1)) + " hours",
-        ]
-        ax_transfer.pie(
-            [minutes_with_transfer, minutes_without_transfer],
-            labels=labels,
-            shadow=True,
-            startangle=90,
-            autopct="%1.1f%%",
-            colors=[NX_PINK,NX_BLUE],
-            wedgeprops=dict(width=0.5),
-            explode=(0.1,0.1)
-        )
-        
+    if chanel_number_for_transfer:
+        ax_transfer = _build_plot_genset_pie_axes(fig_transfer, total_datalog_df, chanel_number_for_transfer, start_date_limit, end_date_limit)
 
 #        plt.pie([minutes_with_transfer,minutes_without_transfer],
 #                labels=labels,
@@ -985,14 +1214,31 @@ def build_genset_time_figure(total_datalog_df):
 #                wedgeprops=dict(width=0.5),
 #                colors=[GENSET_COLOR,NX_LIGHT_BROWN])
 
-        ax_transfer.set_title("Connection of the system to the grid/genset", fontsize=12, weight="bold")
-
     else:
+        ax_transfer = fig_transfer.add_subplot(111)
         ax_transfer.set_title("No inverter and no grid/genset in the system", fontsize=12, weight="bold")
 
     fig_transfer.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_transfer.savefig("FigureExport/genset_use_figure.png")
 
+    def create_tab(figure, tab):
+        def update():
+            clear_figure_axes(figure)
+            new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, total_datalog_df)
+            _build_plot_genset_pie_axes(figure, total_datalog_df, chanel_number_for_transfer, new_start_date, new_end_date)
+            figure.canvas.draw()
+
+        canvas = FigureCanvasTkAgg(figure, tab)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
+
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+    if chanel_number_for_transfer:
+        return InteractiveFigure(fig_transfer, create_tab)
     return fig_transfer
 
 
@@ -1422,9 +1668,8 @@ def build_monthly_energy_sources_fraction_figure(month_kwh_df):
     return fig_ener
 
 
-
-def build_energyorigin_pie_figure(day_kwh_df):
-    
+def _plot_energyorigin_pie_axes(ax_origin, day_kwh_df, start_date=None, end_date=None):
+    day_kwh_df = day_kwh_df[start_date:end_date]
     all_channels_labels=list(day_kwh_df.columns)
     #quarters_channels_labels=list(quarters_mean_df.columns)
     
@@ -1441,62 +1686,78 @@ def build_energyorigin_pie_figure(day_kwh_df):
     #chanel_label_Pout_actif_tot=all_channels_labels[channel_number_Pout_actif_Tot[0]]
     chanel_label_Pin_actif_tot=all_channels_labels[channel_number_Pin_actif_Tot[0]]
     chanel_label_Psolar_tot=all_channels_labels[channels_number_PsolarTot[0]]
+    solar_energy=day_kwh_df[chanel_label_Psolar_tot].sum()   #TODO
+    grid_energy=day_kwh_df[chanel_label_Pin_actif_tot].sum()    #TODO
     
-    
+    labels = [
+        "SOLAR: " + str(round(solar_energy, 1)) + " kWh",
+        "Grid/genset: " + str(round(grid_energy, 1)) + " kWh",
+    ]
+    ax_origin.pie(
+        [solar_energy, grid_energy],
+        labels=labels,
+        shadow=True,
+        startangle=90,
+        autopct="%1.1f%%",
+        colors=[SOLAR_COLOR,GENSET_COLOR],
+        wedgeprops=dict(width=0.5),
+        explode=(0.1,0.1)
+    )
+    # Add border around percentage text to make more legible
+    for text in ax_origin.texts:
+        if '%' in text._text:
+            text.set_path_effects([PathEffects.withStroke(linewidth=3, foreground='w')])
+
+    ax_origin.set_title("Origin of energy", fontsize=12, weight="bold")
+
+
+def build_energyorigin_pie_figure(day_kwh_df):
     fig_origin = plt.figure(figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
     ax_origin = fig_origin.add_subplot(111)
+    start_date_limit = day_kwh_df.index[0].date()
+    end_date_limit = day_kwh_df.index[-1].date() + dt.timedelta(days=1)
 
-    if channels_number_PsolarTot: 
-        
-                
+    all_channels_labels=list(day_kwh_df.columns)
+    channels_number_PsolarTot = [i for i, elem in enumerate(all_channels_labels) if 'Solar power (ALL) [kW]' in elem]
 
-        solar_energy=day_kwh_df[chanel_label_Psolar_tot].sum()   #TODO
-        grid_energy=day_kwh_df[chanel_label_Pin_actif_tot].sum()    #TODO
-        
-        labels = [
-            "SOLAR: " + str(round(solar_energy, 1)) + " kWh",
-            "Grid/genset: " + str(round(grid_energy, 1)) + " kWh",
-        ]
-        ax_origin.pie(
-            [solar_energy, grid_energy],
-            labels=labels,
-            shadow=True,
-            startangle=90,
-            autopct="%1.1f%%",
-            colors=[SOLAR_COLOR,GENSET_COLOR],
-            wedgeprops=dict(width=0.5),
-            explode=(0.1,0.1)
-        )
-        
-
-
-
-        ax_origin.set_title("Origin of energy", fontsize=12, weight="bold")
-
+    if channels_number_PsolarTot:
+        _plot_energyorigin_pie_axes(ax_origin, day_kwh_df)
     else:
         ax_origin.set_title("No solar in the system", fontsize=12, weight="bold")
 
     fig_origin.figimage(im, 10, 10, zorder=3, alpha=.2)
     fig_origin.savefig("FigureExport/origin_pie_figure.png")
 
+    def create_tab(figure, tab):
+        def update():
+            clear_figure_axes(figure)
+            new_start_date, new_end_date = get_date_limits_from_calendar(start_cal, end_cal, start_date_limit, end_date_limit, day_kwh_df)
+            _plot_energyorigin_pie_axes(ax_origin, day_kwh_df, new_start_date, new_end_date)
+            figure.canvas.draw()
+        canvas = FigureCanvasTkAgg(figure, tab)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
+
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+
+    if channels_number_PsolarTot:
+        return InteractiveFigure(fig_origin, create_tab)
     return fig_origin
 
 
-
-def build_sankey_figure(month_kwh_df,year_kwh_df, start_date = dt.date(2000, 1, 1), end_date = dt.date(2050, 12, 31)):
-    
-    
-    #for tests:  TODO
-    #start_date = dt.date(2018, 7, 1)
-    #end_date = dt.date(2018, 8, 30) 
-    
-    
+def _build_sankey_figure(figure, ax_sankey, day_kwh_df, start_date, end_date):
     ################
     #Energy flux
     #https://flothesof.github.io/sankey-tutorial-matplotlib.html
     
-    fig_sankey, ax_sankey =plt.subplots(nrows=1, ncols=1,figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
-    all_channels_labels=month_kwh_df.columns
+    # Select active figure for plt
+    plt.figure(figure.number)
+
+    all_channels_labels=day_kwh_df.columns
 
     channels_number_PsolarTot       = [i for i, elem in enumerate(all_channels_labels) if 'Solar power (ALL) [kW]' in elem]
     channel_number_Pin_actif_Tot    = [i for i, elem in enumerate(all_channels_labels) if "Pin power (ALL)" in elem]
@@ -1509,51 +1770,18 @@ def build_sankey_figure(month_kwh_df,year_kwh_df, start_date = dt.date(2000, 1, 
     channels_number_Pchargebatt= [i for i, elem in enumerate(all_channels_labels) if "System Batt Charge Power Pbatt" in elem]
     channels_number_Pdischargebatt= [i for i, elem in enumerate(all_channels_labels) if "System Batt Discharge Power Pbatt" in elem]
 
-   
     
-    
-    last_month_solar=       month_kwh_df[month_kwh_df.columns[channels_number_PsolarTot]].values[-1]
-    last_month_grid=        month_kwh_df[month_kwh_df.columns[channel_number_Pin_actif_Tot]].values[-1]
-    last_month_chargebatt=  month_kwh_df[month_kwh_df.columns[channels_number_Pchargebatt]].values[-1]
-    last_month_dischargebatt=month_kwh_df[month_kwh_df.columns[channels_number_Pdischargebatt]].values[-1]
-    last_month_loads=       month_kwh_df[month_kwh_df.columns[channel_number_Pout_conso_Tot]].values[-1]
-    
-    last_year_solar=        year_kwh_df[year_kwh_df.columns[channels_number_PsolarTot]].values[-1]
-    last_year_grid=         year_kwh_df[year_kwh_df.columns[channel_number_Pin_actif_Tot]].values[-1]
-    last_year_chargebatt=   year_kwh_df[year_kwh_df.columns[channels_number_Pchargebatt]].values[-1]
-    last_year_dischargebatt=year_kwh_df[year_kwh_df.columns[channels_number_Pdischargebatt]].values[-1]
-    last_year_loads=        year_kwh_df[year_kwh_df.columns[channel_number_Pout_conso_Tot]].values[-1]
-    #channel_number_Pout_conso_Tot
-    #channel_number_Pout_actif_Tot
-    
-    sumofall=year_kwh_df.sum()
-    sumofall_solar=        sumofall[year_kwh_df.columns[channels_number_PsolarTot]].values[-1]
-    sumofall_grid=         sumofall[year_kwh_df.columns[channel_number_Pin_actif_Tot]].values[-1]
-    sumofall_chargebatt=   sumofall[year_kwh_df.columns[channels_number_Pchargebatt]].values[-1]
-    sumofall_dischargebatt=sumofall[year_kwh_df.columns[channels_number_Pdischargebatt]].values[-1]
-    sumofall_loads=        sumofall[year_kwh_df.columns[channel_number_Pout_conso_Tot]].values[-1]
-    
-
-    # TODO: different graph in function of period, or interctive with selectable dates...
-    if False: #True:
-        solar_in=abs(last_month_solar[0])+1e-6
-        genset_in=last_month_grid[0]
-        tot_chargebatt_out=last_month_chargebatt[0]
-        tot_dischargebatt_in=-last_month_dischargebatt[0]
-        loads_out=last_month_loads
-    elif False:
-        solar_in=abs(last_year_solar[0])+1e-6
-        genset_in=last_year_grid[0]
-        tot_chargebatt_out=last_year_chargebatt[0]
-        tot_dischargebatt_in=-last_year_dischargebatt[0]    
-        loads_out=last_year_loads[0]
-        
-    else:
-        solar_in=abs(sumofall_solar)+1e-6
-        genset_in=sumofall_grid
-        tot_chargebatt_out=sumofall_chargebatt
-        tot_dischargebatt_in=-sumofall_dischargebatt
-        loads_out=sumofall_loads
+    sumofall=day_kwh_df[start_date:end_date].sum()
+    sumofall_solar=        sumofall[day_kwh_df.columns[channels_number_PsolarTot]].values[-1]
+    sumofall_grid=         sumofall[day_kwh_df.columns[channel_number_Pin_actif_Tot]].values[-1]
+    sumofall_chargebatt=   sumofall[day_kwh_df.columns[channels_number_Pchargebatt]].values[-1]
+    sumofall_dischargebatt=sumofall[day_kwh_df.columns[channels_number_Pdischargebatt]].values[-1]
+    sumofall_loads=        sumofall[day_kwh_df.columns[channel_number_Pout_conso_Tot]].values[-1]
+    solar_in=abs(sumofall_solar)+1e-6
+    genset_in=sumofall_grid
+    tot_chargebatt_out=sumofall_chargebatt
+    tot_dischargebatt_in=-sumofall_dischargebatt
+    loads_out=sumofall_loads
         
     
     #fluxes: 
@@ -1608,18 +1836,74 @@ def build_sankey_figure(month_kwh_df,year_kwh_df, start_date = dt.date(2000, 1, 
     #matplotlib.sankey.Sankey(ax=None, scale=1.0, unit='', format='%G', gap=0.25, radius=0.1, shoulder=0.03, offset=0.15, head_angle=100, margin=0.4, tolerance=1e-06, **kwargs)[source]
     
     #sk.Sankey(ax=ax_sankey, flows=[minutes_with_transfer, minutes_without_transfer, -(minutes_with_transfer+minutes_without_transfer)], labels=['First', 'Second', 'Third'], orientations=[ 0, 0, -1]).finish()
-    last_year=year_kwh_df.index.year[-1]
+    #last_year=year_kwh_df.index.year[-1]
     #plt.title("Sankey energy flow diagram of system in the recorded data of : " +  str(last_year) + " (available files of this year)" )
-    plt.title("Sankey energy flow diagram of system for available data" )
+    ax_sankey.set_title(f"From {start_date} to {end_date}", fontsize=12)
+    figure.suptitle("Sankey energy flow diagram of system for available data", fontsize=16)
 
     plt.axis('tight')
     plt.axis('equal')
 
-    fig_sankey.figimage(im, 10, 10, zorder=3, alpha=.2)
-    fig_sankey.savefig("FigureExport/sankey_figure.png")
+    figure.figimage(im, 10, 10, zorder=3, alpha=.2)
+    figure.savefig("FigureExport/sankey_figure.png")
+    return figure
 
-    return fig_sankey
 
+def build_sankey_figure(day_kwh_df):
+    start_date_limit = day_kwh_df.index[0].date()
+    end_date_limit = day_kwh_df.index[-1].date() + dt.timedelta(days=1)
+    figure, ax_sankey =plt.subplots(nrows=1, ncols=1,figsize=(FIGSIZE_WIDTH, FIGSIZE_HEIGHT))
+    _build_sankey_figure(figure, ax_sankey, day_kwh_df, start_date_limit, end_date_limit)
+
+    def create_tab(figure, tab):
+        def update():
+            clear_figure_axes(figure)
+            _build_sankey_figure(
+                figure,
+                ax_sankey,
+                day_kwh_df,
+                *get_date_limits_from_calendar(
+                    start_cal, end_cal, start_date_limit,
+                    end_date_limit, day_kwh_df
+                )
+            )
+            figure.canvas.draw()
+
+        canvas = FigureCanvasTkAgg(figure, tab)
+        ttk.Button(tab, text="Update", command=update).pack(side=tk.BOTTOM)
+
+        date_range_reference = create_tkinter_date_range_frame(tab)
+        start_cal = date_range_reference.start_cal
+        start_cal.set_date(start_date_limit)
+        end_cal = date_range_reference.end_cal
+        end_cal.set_date(end_date_limit)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.X, expand=True)
+    return InteractiveFigure(figure, create_tab)
+
+
+def create_tkinter_date_range_frame(parent, side=tk.LEFT):
+    """
+    Create the interactive tkinter Date and Label objects
+    to enter dates """
+    date_frame = ttk.Frame(parent)
+
+    # Start
+    ttk.Label(date_frame, text='Start Date (inclusive)').pack(padx=10, pady=10, side=side)
+    start_cal = DateEntry(
+        date_frame, width=12, background='darkblue',
+        foreground='white', borderwidth=2,
+        date_pattern="dd/mm/y" )
+    start_cal.pack(padx=10, pady=10, side=side)
+
+    # End
+    ttk.Label(date_frame, text='End Date (exclusive)').pack(padx=10, pady=10, side=side)
+    end_cal = DateEntry(
+        date_frame, width=12, background='darkblue',
+        foreground='white', borderwidth=2,
+        date_pattern="dd/mm/y" )
+    end_cal.pack(padx=10, pady=10, side=side)
+    date_frame.pack(side=tk.BOTTOM)
+    return DateRangeReference(start_cal, end_cal, frame=date_frame)
 
 
 def build_daily_energies_figure(day_kwh_df):
@@ -1894,54 +2178,6 @@ def build_monthly_energies_figure2(month_kwh_df):
 #    return fig_ener2
 
 
-
-
-def build_interactive_figure(total_datalog_df):
-    
-    #example from: https://blog.finxter.com/matplotlib-widgets-sliders/
-        # see also: https://matplotlib.org/3.1.1/gallery/widgets/slider_demo.html
-
-    # Initial x and y arrays
-    x = np.linspace(0, 10, 30)
-    y = np.sin(0.5*x)*np.sin(x*np.random.randn(30))
-    
-    # Spline interpolation
-    spline = UnivariateSpline(x, y, s = 6)
-    x_spline = np.linspace(0, 10, 1000)
-    y_spline = spline(x_spline)
-    
-    # Plotting
-    fig = plt.figure()
-    plt.subplots_adjust(bottom=0.25)
-    ax = fig.subplots()
-    p = ax.plot(x,y)
-    p, = ax.plot(x_spline, y_spline, 'g')
-    ax.set_title("Test of an interactive figure", fontsize=12, weight="bold")
-
-    # Defining the Slider button
-    # xposition, yposition, width and height
-    ax_slide = plt.axes([0.25, 0.1, 0.65, 0.03])
-    
-    # Properties of the slider
-    s_factor = Slider(ax_slide, 'Smoothing factor',
-                      0.1, 6, valinit=6, valstep=0.2)
-    
-    # Updating the plot
-    def update(val):
-        current_v = s_factor.val
-        spline = UnivariateSpline(x, y, s = current_v)
-        p.set_ydata(spline(x_spline))
-        #redrawing the figure
-        fig.canvas.draw()
-        
-    # Calling the function "update" when the value of the slider is changed
-    s_factor.on_changed(update)
-    
-    
-    
-    return fig
-
-
 def main():
     total_datalog_df = pd.read_pickle(xt_all_csv_pandas_import.MIN_DATAFRAME_NAME)
     #means
@@ -2035,11 +2271,10 @@ def main():
     
     build_daily_energies_figure(day_kwh_df)
     build_daily_energies_heatmap_figure(day_kwh_df)
-    build_sankey_figure(month_kwh_df,year_kwh_df)
+    build_sankey_figure(day_kwh_df)
 
     #build_monthly_energies_polar_figure(total_datalog_df,month_kwh_df)
     
-    build_interactive_figure(total_datalog_df)
     plt.show()
 
 
